@@ -7,11 +7,13 @@ const LoginPage = () => {
             <h2 className={style.title}>Capsa</h2>
 
                 <form className={style.form}>
-                    
+                        <label htmlFor='login'>Login</label>
                     <input className={style.input}
                         type="text"
                         id='login'
                         placeholder='send your login' />
+
+                        <label htmlFor='password'>Password</label>
                     <input className={style.input}
                         type="password"
                         id='password'
