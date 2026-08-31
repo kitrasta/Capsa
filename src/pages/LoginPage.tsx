@@ -1,26 +1,25 @@
 import style from './LoginPage.module.css';
-import { useState} from 'react';
+import { useState } from 'react';
 import { loginUser } from '../shared/lib/matrix/client';
 
 const LoginPage = () => {
 
+    const [login, setLogin] = useState('');
+    const [password, setPassword] = useState('')
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-try {
-    const result = await loginUser(login, password);
-    console.log(result);
-
-} catch (error) {
-    console.error('Login failed', error)
-}
+        try {
+            const result = await loginUser(login, password);
+            console.log(result);
+        }   catch (error) {
+            console.error('Login failed', error)
+        }
 
     }
 
-    
 
-    const [login, setLogin] = useState('');
-    const [password, setPassword] = useState('')
 
 
     return (
