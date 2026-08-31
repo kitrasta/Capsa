@@ -1,12 +1,16 @@
 import style from './LoginPage.module.css';
-import { useState } from 'react';
+import { useState} from 'react';
 
 const LoginPage = () => {
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
+        console.log(login, password)
+
     }
+
+    
 
     const [login, setLogin] = useState('');
     const [password, setPassword] = useState('')
