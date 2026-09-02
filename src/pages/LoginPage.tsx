@@ -1,9 +1,12 @@
 import style from './LoginPage.module.css';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { loginUser } from '../shared/lib/matrix/client';
 import { saveSession } from '../shared/lib/matrix/session';
 
 const LoginPage = () => {
+
+    const navigate = useNavigate();
 
     const [login, setLogin] = useState('');
     const [password, setPassword] = useState('')
@@ -13,13 +16,15 @@ const LoginPage = () => {
 
         try {
             const result = await loginUser(login, password);
-            if (result) {
-                saveSession(
-                    accessToken = result.access_token,
-                    userId = result.user_id,
-                    deviceId = result.device_id 
-                )
-            }
+
+                saveSession({
+                    accessToken: result.access_token,
+                    userId: result.user_id,
+                    deviceId: result.device_id
+                });
+                    
+                navigate('/main');
+            
 
 
             console.log(result);
