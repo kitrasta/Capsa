@@ -1,6 +1,7 @@
 import style from './LoginPage.module.css';
 import { useState } from 'react';
 import { loginUser } from '../shared/lib/matrix/client';
+import { saveSession } from '../shared/lib/matrix/session';
 
 const LoginPage = () => {
 
@@ -12,10 +13,21 @@ const LoginPage = () => {
 
         try {
             const result = await loginUser(login, password);
+            if (result) {
+                saveSession(
+                    accessToken = result.access_token,
+                    userId = result.user_id,
+                    deviceId = result.device_id 
+                )
+            }
+
+
             console.log(result);
         }   catch (error) {
             console.error('Login failed', error)
         }
+
+
 
     }
 

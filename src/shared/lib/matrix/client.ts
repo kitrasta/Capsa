@@ -1,7 +1,8 @@
 import { createClient } from 'matrix-js-sdk';
+const client = createClient({ baseUrl: 'https://matrix.org' });
 
 export const loginUser = (login: string, password: string) => {
-    const client = createClient({ baseUrl: 'https://matrix.org' });
+
 
     return client.loginRequest({
         type: 'm.login.password',
@@ -12,5 +13,7 @@ export const loginUser = (login: string, password: string) => {
         password,
     });
 };
+
+export const getClient = () => client;
 
 
