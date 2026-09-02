@@ -5,5 +5,22 @@ export interface MatrixSession {
 }
 
 const ACCESS_TOKEN_KEY = 'matrix_access_token';
-const USER_ID = '';
-const DEVICE_ID = '';
+const USER_ID = 'matrix_user_id';
+const DEVICE_ID = 'matrix_device_id';
+
+export function getSession():MatrixSession | null {
+    if (!localStorage.getItem(ACCESS_TOKEN_KEY) ||
+        !localStorage.getItem(USER_ID) ||
+        !localStorage.getItem(DEVICE_ID) === null) {
+            return null;
+        } else {
+            return saveSession()
+        }
+
+}
+
+export function saveSession(session: MatrixSession): void {
+    localStorage.setItem(ACCESS_TOKEN_KEY, session.accessToken);
+    localStorage.setItem(USER_ID, session.userId);
+    localStorage.setItem(DEVICE_ID, session.deviceId);
+}
