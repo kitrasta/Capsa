@@ -1,0 +1,7 @@
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;   /* по горизонтали */
+    align-items: center;      /* по вертикали */
+    height: 100vh;
+}
