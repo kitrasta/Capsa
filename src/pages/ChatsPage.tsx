@@ -1,8 +1,8 @@
-import style from './AuthLayout.module.css';
+import styles from './ChatsPage.module.css';
 
 const ChatsPage = () => {
     return (
-
+<></>
     )
 }
 
