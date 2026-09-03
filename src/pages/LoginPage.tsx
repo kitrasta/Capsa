@@ -23,7 +23,7 @@ const LoginPage = () => {
                     deviceId: result.device_id
                 });
                     
-                navigate('/main');
+                navigate('/chats');
             
 
 
