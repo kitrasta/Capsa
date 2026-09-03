@@ -3,3 +3,11 @@
     grid-template-columns: 300px 1fr;   /* сайдбар 300px, контент — всё остальное */
     height: 100vh;
 }
+
+
+.sidebar {
+    min-width: 0;
+    overflow: hidden;
+    padding: 4px;
+}
+

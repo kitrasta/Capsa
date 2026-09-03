@@ -1,10 +1,11 @@
 import styles from './MainLayout.module.css';
 import { Outlet } from 'react-router-dom';
+import { Sidebar } from '../../widget/Sidebar/SideBar';
 
 const MainLayout = () => {
     return (
         <div className={styles.wrapper}>
-            <aside className={styles.sidebar}>Список чатов</aside>
+            <aside className={styles.sidebar}><Sidebar /></aside>
             <main className={styles.content}><Outlet /></main>
             
         </div>
