@@ -1,0 +1,5 @@
+.wrapper {
+    display: grid;
+    grid-template-columns: 300px 1fr;   /* сайдбар 300px, контент — всё остальное */
+    height: 100vh;
+}
