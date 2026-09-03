@@ -8,21 +8,18 @@ const AppRouter = () => {
 return (
     <Routes>
         <Route element={<AuthLayout />}>
-            <Route path='/' element={<Navigate to='/auth' replace />} />
-            <Route path='*' element={<Navigate to='/auth' replace />} />
-
-        <Route path="/auth" element={<LoginPage />} />
-
-        <Route element={<MainLayout />}>
-        <Route path="/chats" element={<ChatsPage />} />
-
+            <Route path="/auth" element={<LoginPage />} />
         </Route>
 
+        <Route element={<MainLayout />}>
+            <Route path="/chats" element={<ChatsPage />} />
+        </Route>
 
+        <Route path="*" element={<Navigate to="/auth" />} />
+        <Route path="/" element={<Navigate to="/auth" />} />
     </Routes>
-
-
 )
 }
+
 
 export default AppRouter
