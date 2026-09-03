@@ -1,5 +1,5 @@
 import style from './LoginPage.module.css';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser } from '../shared/lib/matrix/client';
 import { saveSession, getSession } from '../shared/lib/matrix/session';
@@ -8,9 +8,11 @@ const LoginPage = () => {
     const session = getSession();
     const navigate = useNavigate();
 
-    if (session) {
-        navigate('/chats');
-    }
+    useEffect(() => {
+        if (session) {
+            navigate('/chats');
+        }
+    }, [session])
 
     const [login, setLogin] = useState('');
     const [password, setPassword] = useState('')
