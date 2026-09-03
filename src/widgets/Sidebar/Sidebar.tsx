@@ -1,5 +1,5 @@
 import styles from './Sidebar.module.css';
-import { Navbar } from './Navbar/Navbar';
+import  Navbar  from './Navbar/Navbar';
 
  const Sidebar = () => {
     return (

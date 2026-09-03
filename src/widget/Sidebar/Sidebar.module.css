@@ -1,6 +1,0 @@
-.wrapper {
-    display: flex;
-    flex-direction: column;
-    
-    background: var(--color-bg-secondary);
-}

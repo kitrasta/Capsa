@@ -3,14 +3,14 @@ import LoginPage from '../../pages/LoginPage.tsx'
 import AuthLayout from '../ui/AuthLayout.tsx'
 import MainLayout from '../ui/MainLayout.tsx'
 import ChatsPage from '../../pages/ChatsPage.tsx'
-import { AuthGuard } from './AuthGuard.tsx'
+import  AuthGuard  from './AuthGuard.tsx'
 
 const AppRouter = () => {
     return (
         <Routes>
             <Route element={<AuthLayout />}>
                 <Route path="/auth" element={<LoginPage />} />
-                
+
             </Route>
             <Route element={<AuthGuard />}>
                 <Route element={<MainLayout />}>

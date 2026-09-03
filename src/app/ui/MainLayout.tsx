@@ -1,6 +1,6 @@
 import styles from './MainLayout.module.css';
 import { Outlet } from 'react-router-dom';
-import { Sidebar } from '../../widget/Sidebar/SideBar';
+import Sidebar  from '../../widgets/Sidebar/Sidebar';
 
 const MainLayout = () => {
     return (

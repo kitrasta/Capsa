@@ -1,7 +1,7 @@
 import {Navigate, Outlet} from "react-router-dom";
 import {getSession} from "../../shared/lib/matrix/session";
 
-export const AuthGuard = () => {
+ const AuthGuard = () => {
     const session = getSession();
 
     if (!session) {
@@ -10,3 +10,5 @@ export const AuthGuard = () => {
 
     return <Outlet />;
 }
+
+export default AuthGuard;
