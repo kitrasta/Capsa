@@ -1,5 +1,6 @@
 .wrapper {
     display: flex;
     flex-direction: row;
-    
+    border-top: var(--c-border) 1px solid;
+
 }

@@ -3,6 +3,9 @@ import LoginPage from '../../pages/LoginPage.tsx'
 import AuthLayout from '../ui/AuthLayout.tsx'
 import MainLayout from '../ui/MainLayout.tsx'
 import ChatsPage from '../../pages/ChatsPage.tsx'
+import ContactsPage from '../../pages/ContactsPage.tsx'
+import CallsPage from '../../pages/CallsPage.tsx'
+import SettingsPage from '../../pages/SettingsPage.tsx'
 import  AuthGuard  from './AuthGuard.tsx'
 
 const AppRouter = () => {
@@ -15,6 +18,9 @@ const AppRouter = () => {
             <Route element={<AuthGuard />}>
                 <Route element={<MainLayout />}>
                     <Route path="/chats" element={<ChatsPage />} />
+                    <Route path="/contacts" element={<ContactsPage />} />
+                    <Route path="/calls" element={<CallsPage />} />
+                    <Route path='settings' element={<SettingsPage />} />
                 </Route>
             </Route>
 

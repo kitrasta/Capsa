@@ -3,8 +3,8 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    border: solid 1px var(--vp-c-border);
+    border: solid 1px var(--c-border);
     border-radius: var(--radius-md);
     
-    background: var(--vp-sidebar-bg-color);
+    background: var(--sidebar-bg-color);
 }
