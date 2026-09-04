@@ -20,7 +20,7 @@ const AppRouter = () => {
                     <Route path="/chats" element={<ChatsPage />} />
                     <Route path="/contacts" element={<ContactsPage />} />
                     <Route path="/calls" element={<CallsPage />} />
-                    <Route path='settings' element={<SettingsPage />} />
+                    <Route path='/settings' element={<SettingsPage />} />
                 </Route>
             </Route>
 

@@ -2,5 +2,26 @@
     display: flex;
     flex-direction: row;
     border-top: var(--c-border) 1px solid;
+    gap: 16px;
+    margin-top: auto;
+    color: var(--c-text-1);
+    padding: 8px 0;
+    justify-content: space-around;
+    align-items: center;
 
+}
+
+.wrapper a {
+    color: var(--c-text-1);
+
+
+}
+
+.wrapper a:hover {
+    color: var(--c-brand);
+
+}
+
+.wrapper a.active {
+    color: var(--c-brand);
 }
