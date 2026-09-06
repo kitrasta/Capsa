@@ -1,6 +1,7 @@
 import styles from './SearchBar.module.css';
 import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
+import { searchPublicRooms } from '../../../shared/lib/matrix/client';
 
 const SearchBar = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -8,10 +9,20 @@ const SearchBar = () => {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const timer = setTimeout(() =>{
+        if (searchTerm === '') {
+            setResults([]);
+            return;
+        }
+        const timer = setTimeout(async() =>{
             setLoading(true);
-
-            setLoading(false);
+            try{
+                const rooms = await searchPublicRooms(searchTerm);
+                setResults(rooms);
+            } catch (error) {
+                console.error('Error searching public rooms:', error);
+            } finally {
+                setLoading(false);
+            }
         }, 500);
 
         return () => clearTimeout(timer);
