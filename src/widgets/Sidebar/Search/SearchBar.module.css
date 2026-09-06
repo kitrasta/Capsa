@@ -13,7 +13,7 @@
     color: var(--c-text-1);
 }
 
-input:focus {
+.input:focus {
     outline:none;
     border-color: var(--c-brand);
 }
