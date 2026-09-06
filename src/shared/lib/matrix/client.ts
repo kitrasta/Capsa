@@ -1,5 +1,5 @@
 import { createClient } from 'matrix-js-sdk';
-import type {LoginResponse} from "matrix-js-sdk";
+import type {LoginResponse, IPublicRoomsChunkRoom} from "matrix-js-sdk";
 const client = createClient({ baseUrl: 'https://matrix.org' });
 
 export const loginUser = async (
@@ -19,5 +19,18 @@ export const loginUser = async (
 };
 
 export const getClient = () => client;
+
+export const searchPublicRooms = async (
+    query: string
+): Promise<IPublicRoomsChunkRoom[]> => {
+    const client = getClient();
+    const response = await client.publicRooms({
+        limit: 20,
+        filter: {
+            generic_search_term: query
+        }
+    });
+    return response.chunk;
+}
 
 
