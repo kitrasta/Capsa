@@ -11,26 +11,26 @@ const Navbar = () => {
             to="/contacts"
             className={({ isActive}) => isActive ? styles.active : ''}
             >
-                <Users />
+                <Users size={24}/>
         </NavLink>
 
         <NavLink
         to='/calls'
         className={({ isActive}) => isActive ? styles.active : ''}
          >
-            <Phone />
+            <Phone size={24} />
          </NavLink>
          <NavLink
          to='/chats'
          className={({ isActive}) => isActive ? styles.active : ''}
          >
-            <MessageSquare />
+            <MessageSquare size={24} />
          </NavLink>
          <NavLink
             to='/settings'
             className={({ isActive}) => isActive ? styles.active : ''}
          >
-            <Settings />
+            <Settings size={24} />
 
          </NavLink>
 
