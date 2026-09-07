@@ -2,6 +2,7 @@
     display:flex;
     position: relative;
     padding: 12px 8px;
+    flex-direction:column;
 }
 
 .input {
@@ -13,9 +14,13 @@
     color: var(--c-text-1);
 }
 
+.inputRow {
+    position:relative;
+}
+
 .input:focus {
     outline:none;
-    border-color: var(--c-brand);
+
 }
 
 .icon {

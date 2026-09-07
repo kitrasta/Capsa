@@ -14,9 +14,9 @@ const SearchBar = () => {
             setResults([]);
             return;
         }
-        const timer = setTimeout(async() =>{
+        const timer = setTimeout(async () => {
             setLoading(true);
-            try{
+            try {
                 const rooms = await searchPublicRooms(searchTerm);
                 setResults(rooms);
             } catch (error) {
@@ -32,14 +32,18 @@ const SearchBar = () => {
     return (
         <div className={styles.wrapper}>
 
-            <Search className={styles.icon} size={20} />
-            <input
-                className={styles.input}
-                type="text"
-                placeholder='Search'
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <div className={styles.inputRow}>
+                <Search className={styles.icon} size={20} />
+                <input
+                    className={styles.input}
+                    type="text"
+                    placeholder='Search'
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+
+            {loading && <span>Loading...</span>}
             {results.map((room) => (
                 <div key={room.room_id} className={styles.result}>
                     <span>{room.name}</span>
@@ -48,7 +52,7 @@ const SearchBar = () => {
                     </span>
                 </div>
             ))}
-       
+
         </div>
 
 
