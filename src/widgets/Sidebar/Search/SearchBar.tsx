@@ -10,10 +10,8 @@ const SearchBar = () => {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (searchTerm === '') {
-            setResults([]);
-            return;
-        }
+        if (searchTerm === '') return;
+        
         const timer = setTimeout(async () => {
             setLoading(true);
             try {
@@ -39,7 +37,13 @@ const SearchBar = () => {
                     type="text"
                     placeholder='Search'
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                        const value = e.target.value;
+                        setSearchTerm(value);
+                        if (value === ''){
+                            setResults([])
+                        }
+                    }}
                 />
             </div>
 
