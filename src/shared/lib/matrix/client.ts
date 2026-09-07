@@ -1,5 +1,6 @@
 import { createClient } from 'matrix-js-sdk';
 import type {LoginResponse, IPublicRoomsChunkRoom} from "matrix-js-sdk";
+import {getSession} from './session'
 const client = createClient({ baseUrl: 'https://matrix.org' });
 
 export const loginUser = async (
@@ -18,7 +19,14 @@ export const loginUser = async (
     });
 };
 
-export const getClient = () => client;
+export const getClient = () => {
+    const session = getSession();
+    if (!session) {
+        return client
+    }
+    client.setAccessToken(session.accessToken);
+    return client
+}
 
 export const searchPublicRooms = async (
     query: string
