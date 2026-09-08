@@ -44,7 +44,7 @@ const Sidebar = () => {
         try {
             await joinRoom(roomId);
         } catch (error) {
-            console.error(error: 'че то сломалось:', error)
+            console.error('че то сломалось:', error)
         }
 
     }
@@ -58,7 +58,8 @@ const Sidebar = () => {
                 searchTerm={searchTerm}
                 onSearchTermChange={handleSearchChange}
                 results={results}
-                loading={loading} />
+                loading={loading}
+                onRoomClick={handleRoomClick} />
 
             <Navbar />
 

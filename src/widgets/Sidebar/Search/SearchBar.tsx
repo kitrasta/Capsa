@@ -10,13 +10,10 @@ interface Props {
     onSearchTermChange: (value: string) => void;
     results: IPublicRoomsChunkRoom[];
     loading: boolean;
-}
-
-interface Props {
     onRoomClick: (roomId: string) => void;
 }
 
-const SearchBar = ({searchTerm, onSearchTermChange, results, loading}: Props) => {
+const SearchBar = ({searchTerm, onSearchTermChange, results, loading, onRoomClick}: Props) => {
 
 
 
