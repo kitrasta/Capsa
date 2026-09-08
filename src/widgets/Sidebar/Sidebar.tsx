@@ -7,15 +7,19 @@ import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
 
  const Sidebar = () => {
 
+        const handleSearchChange = (value: string) => {
+            setSearchTerm(value);
+            if (value = ''){
+                setResults([]);
+            }
+        };
+
         const [searchTerm, setSearchTerm] = useState('');
         const [results, setResults] = useState<IPublicRoomsChunkRoom[]>([]);
         const [loading, setLoading] = useState(false);
 
             useEffect(() => {
-        if (searchTerm === '') {
-            setResults([]);
-            return;
-        }
+        if (searchTerm === '') return;
         
         const timer = setTimeout(async () => {
             setLoading(true);
@@ -38,7 +42,7 @@ import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
 
             <SearchBar
             searchTerm={searchTerm}
-            onSearchTermChange={setSearchTerm}
+            onSearchTermChange={handleSearchChange}
             results={results}
             loading={loading} />
 
