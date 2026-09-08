@@ -9,7 +9,7 @@ import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
 
         const handleSearchChange = (value: string) => {
             setSearchTerm(value);
-            if (value = ''){
+            if (value === ''){
                 setResults([]);
             }
         };
