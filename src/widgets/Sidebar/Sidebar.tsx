@@ -12,7 +12,10 @@ import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
         const [loading, setLoading] = useState(false);
 
             useEffect(() => {
-        if (searchTerm === '') return;
+        if (searchTerm === '') {
+            setResults([]);
+            return;
+        }
         
         const timer = setTimeout(async () => {
             setLoading(true);
