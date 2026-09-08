@@ -1,35 +1,21 @@
 import styles from './Sidebar.module.css';
-import  Navbar  from './Navbar/Navbar';
+import Navbar from './Navbar/Navbar';
 import SearchBar from './Search/SearchBar';
 import { useState, useEffect } from 'react';
-import { searchPublicRooms } from '../../shared/lib/matrix/client';
+import { searchPublicRooms, joinRoom } from '../../shared/lib/matrix/client';
 import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
 
- const Sidebar = () => {
+const Sidebar = () => {
 
-        const handleSearchChange = (value: string) => {
-            setSearchTerm(value);
-            if (value === ''){
-                setResults([]);
-            }
-        };
 
-        const handleRoomClick = async (roomId: string) => {
-            try {
-                await joinRoom(roomId);
-            } (error){
-                console.log(error: 'нихуя не сработало')
-            }
 
-        }
+    const [searchTerm, setSearchTerm] = useState('');
+    const [results, setResults] = useState<IPublicRoomsChunkRoom[]>([]);
+    const [loading, setLoading] = useState(false);
 
-        const [searchTerm, setSearchTerm] = useState('');
-        const [results, setResults] = useState<IPublicRoomsChunkRoom[]>([]);
-        const [loading, setLoading] = useState(false);
-
-            useEffect(() => {
+    useEffect(() => {
         if (searchTerm === '') return;
-        
+
         const timer = setTimeout(async () => {
             setLoading(true);
             try {
@@ -45,20 +31,39 @@ import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+
+
+    const handleSearchChange = (value: string) => {
+        setSearchTerm(value);
+        if (value === '') {
+            setResults([]);
+        }
+    };
+
+    const handleRoomClick = async (roomId: string) => {
+        try {
+            await joinRoom(roomId);
+        } catch (error) {
+            console.error(error: 'че то сломалось:', error)
+        }
+
+    }
+
+
     return (
         <div className={styles.wrapper}>
             <h3>Capsa</h3>
 
             <SearchBar
-            searchTerm={searchTerm}
-            onSearchTermChange={handleSearchChange}
-            results={results}
-            loading={loading} />
+                searchTerm={searchTerm}
+                onSearchTermChange={handleSearchChange}
+                results={results}
+                loading={loading} />
 
             <Navbar />
 
         </div>
-            
+
 
     )
 }
