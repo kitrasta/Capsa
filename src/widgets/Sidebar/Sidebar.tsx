@@ -3,6 +3,7 @@ import  Navbar  from './Navbar/Navbar';
 import SearchBar from './Search/SearchBar';
 import { useState, useEffect } from 'react';
 import { searchPublicRooms } from '../../../shared/lib/matrix/client';
+import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
 
  const Sidebar = () => {
 
@@ -37,7 +38,7 @@ import { searchPublicRooms } from '../../../shared/lib/matrix/client';
             onSearchTermChange={onSearchTermChange}
             results={results}
             loading={loading} />
-            
+
             <Navbar />
 
         </div>

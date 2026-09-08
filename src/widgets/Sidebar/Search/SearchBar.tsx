@@ -2,16 +2,16 @@ import styles from './SearchBar.module.css';
 
 import { Search } from 'lucide-react';
 
-import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
+
 
 interface Props {
     searchTerm: string;
-    onSearchTernChange: (value: string) => void;
+    onSearchTermChange: (value: string) => void;
     results: IPublicRoomsChunkRoom[];
     loading: boolean;
 }
 
-const SearchBar = () => {
+const SearchBar = {(searchTerm, onSearchTermChange, results, loading): Props} => {
 
 
 
