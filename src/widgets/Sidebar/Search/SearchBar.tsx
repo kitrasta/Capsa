@@ -1,5 +1,5 @@
 import styles from './SearchBar.module.css';
-
+import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
 import { Search } from 'lucide-react';
 
 
@@ -11,7 +11,7 @@ interface Props {
     loading: boolean;
 }
 
-const SearchBar = {(searchTerm, onSearchTermChange, results, loading): Props} => {
+const SearchBar = ({searchTerm, onSearchTermChange, results, loading}: Props) => {
 
 
 
@@ -27,11 +27,7 @@ const SearchBar = {(searchTerm, onSearchTermChange, results, loading): Props} =>
                     placeholder='Search'
                     value={searchTerm}
                     onChange={(e) => {
-                        const value = e.target.value;
-                        setSearchTerm(value);
-                        if (value === ''){
-                            setResults([])
-                        }
+                        onSearchTermChange(e.target.value)
                     }}
                 />
             </div>
