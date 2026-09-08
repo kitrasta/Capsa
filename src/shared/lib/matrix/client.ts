@@ -46,4 +46,12 @@ export const joinRoom = async (roomId: string): Promise<Room> => {
     return client.joinRoom(roomId)
 }
 
+export const getMyRooms = async (): Promise<Room[]> => {
+    const client = getClient();
+    const response = await client.getJoinedRooms();
+    return response.joined_rooms
+    .map((roomId) => client.getRoom(roomId))
+    .filter((room): room is Room => room !== null)
+}
+
 

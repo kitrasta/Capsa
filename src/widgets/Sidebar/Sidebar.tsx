@@ -3,7 +3,7 @@ import Navbar from './Navbar/Navbar';
 import SearchBar from './Search/SearchBar';
 import { useState, useEffect } from 'react';
 import { searchPublicRooms, joinRoom } from '../../shared/lib/matrix/client';
-import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
+import type { IPublicRoomsChunkRoom, Room } from 'matrix-js-sdk';
 
 const Sidebar = () => {
 
@@ -12,6 +12,7 @@ const Sidebar = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<IPublicRoomsChunkRoom[]>([]);
     const [loading, setLoading] = useState(false);
+    const [myRoom, setMyRoom] = useState<Room[]>([])
 
     useEffect(() => {
         if (searchTerm === '') return;
