@@ -1,5 +1,5 @@
 import { createClient } from 'matrix-js-sdk';
-import type {LoginResponse, IPublicRoomsChunkRoom} from "matrix-js-sdk";
+import type {LoginResponse, IPublicRoomsChunkRoom, Room} from "matrix-js-sdk";
 import {getSession} from './session'
 const client = createClient({ baseUrl: 'https://matrix.org' });
 
@@ -39,6 +39,11 @@ export const searchPublicRooms = async (
         }
     });
     return response.chunk;
+}
+
+export const joinRoom = async (roomId: string): Promise<Room> => {
+    const client = getClient();
+    return client.joinRoom(roomId)
 }
 
 

@@ -1,5 +1,5 @@
 import styles from './SearchBar.module.css';
-import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
+import type { IPublicRoomsChunkRoom} from 'matrix-js-sdk';
 import { Search } from 'lucide-react';
 
 
@@ -9,6 +9,10 @@ interface Props {
     onSearchTermChange: (value: string) => void;
     results: IPublicRoomsChunkRoom[];
     loading: boolean;
+}
+
+interface Props {
+    onRoomClick: (roomId: string) => void;
 }
 
 const SearchBar = ({searchTerm, onSearchTermChange, results, loading}: Props) => {
@@ -34,12 +38,16 @@ const SearchBar = ({searchTerm, onSearchTermChange, results, loading}: Props) =>
 
             {loading && <span>Loading...</span>}
             {results.map((room) => (
-                <div key={room.room_id} className={styles.result}>
+                <button
+                key={room.room_id} 
+                className={styles.result}
+                onClick={() => onRoomClick(room.room_id)}>
+
                     <span>{room.name}</span>
-                    <span className={styles.members}>
-                        {room.num_joined_members}
-                    </span>
-                </div>
+                    <span className={styles.members}>{room.num_joined_members}</span>
+
+                </button>
+                
             ))}
 
         </div>

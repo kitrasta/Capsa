@@ -14,6 +14,15 @@ import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
             }
         };
 
+        const handleRoomClick = async (roomId: string) => {
+            try {
+                await joinRoom(roomId);
+            } (error){
+                console.log(error: 'нихуя не сработало')
+            }
+
+        }
+
         const [searchTerm, setSearchTerm] = useState('');
         const [results, setResults] = useState<IPublicRoomsChunkRoom[]>([]);
         const [loading, setLoading] = useState(false);
