@@ -1,8 +1,15 @@
 import styles from './SearchBar.module.css';
-import { useState, useEffect } from 'react';
+
 import { Search } from 'lucide-react';
-import { searchPublicRooms } from '../../../shared/lib/matrix/client';
+
 import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
+
+interface Props {
+    searchTerm: string;
+    onSearchTernChange: (value: string) => void;
+    results: IPublicRoomsChunkRoom[];
+    loading: boolean;
+}
 
 const SearchBar = () => {
 

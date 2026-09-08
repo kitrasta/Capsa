@@ -1,6 +1,8 @@
 import styles from './Sidebar.module.css';
 import  Navbar  from './Navbar/Navbar';
 import SearchBar from './Search/SearchBar';
+import { useState, useEffect } from 'react';
+import { searchPublicRooms } from '../../../shared/lib/matrix/client';
 
  const Sidebar = () => {
 
@@ -29,7 +31,13 @@ import SearchBar from './Search/SearchBar';
     return (
         <div className={styles.wrapper}>
             <h3>Capsa</h3>
-            <SearchBar />
+
+            <SearchBar
+            searchTerm={searchTerm}
+            onSearchTermChange={onSearchTermChange}
+            results={results}
+            loading={loading} />
+            
             <Navbar />
 
         </div>
