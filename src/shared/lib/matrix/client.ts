@@ -22,7 +22,7 @@ export const loginUser = async (
 export const getClient = () => {
     const session = getSession();
     if (!session) {
-        return client
+        throw new Error('Ошибка')
     }
     client.setAccessToken(session.accessToken);
     return client

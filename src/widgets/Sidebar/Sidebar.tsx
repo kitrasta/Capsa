@@ -12,7 +12,7 @@ const Sidebar = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<IPublicRoomsChunkRoom[]>([]);
     const [loading, setLoading] = useState(false);
-    const [myRoom, setMyRoom] = useState<Room[]>([])
+    const [myRooms, setMyRooms] = useState<Room[]>([])
 
     useEffect(() => {
         if (searchTerm === '') return;
