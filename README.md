@@ -1,75 +1,149 @@
-# React + TypeScript + Vite
+# Capsa
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> Спокойный и современный Matrix-клиент для общения без привязки к одной платформе.
 
-Currently, two official plugins are available:
+**Capsa** — Matrix-клиент в знакомом Telegram-подобном интерфейсе, построенный на React и TypeScript. Он объединяет чистый дизайн с открытой, независимой и совместимой экосистемой Matrix.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Проект создаётся с прицелом на production: строгая типизация, явный lifecycle Matrix-клиента, сохранение состояния синхронизации и структура компонентов, которая не развалится по мере роста приложения.
 
-## React Compiler
+## Зачем Capsa?
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Matrix — мощная экосистема, но существующие клиенты нередко перегружены или выглядят непоследовательно. Capsa концентрируется на главном:
 
-## Expanding the ESLint configuration
+- **Сначала диалоги** — понятный sidebar и чистое рабочее пространство чата.
+- **Открытая экосистема** — общение через Matrix без lock-in одной платформы.
+- **Быстрые ежедневные сценарии** — поиск публичных комнат, вступление в них и единый список чатов.
+- **Основа для роста** — React 19, TypeScript и аккуратно разделённая архитектура.
+- **Никаких моков вместо продукта** — интерфейс подключается к реальным API Matrix.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Статус проекта
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Capsa находится в активной ранней разработке.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Уже есть
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Вход в Matrix по логину и паролю
+- Сохранение сессии в браузере
+- Защищённые роуты для авторизованного пользователя
+- Поиск публичных комнат
+- Вступление в публичные комнаты
+- Инициализация клиента через `matrix-js-sdk`
+- Хранилище синхронизации в IndexedDB с fallback на память
+- Отдельный компонент результата поиска комнаты в sidebar
 
+### В работе
+
+- Живой список комнат в sidebar
+- Выбор комнаты и роутинг `/chats/:roomId`
+- Таймлайн сообщений и отправка сообщений
+- Поиск по сообщениям
+- Аватары, непрочитанные сообщения и расширенные данные комнат
+
+Разработка идёт постепенно: каждая функция подключается к настоящему Matrix-клиенту, а не прячется за фейковыми данными.
+
+## Стек
+
+- [React 19](https://react.dev/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Vite](https://vite.dev/)
+- [matrix-js-sdk](https://github.com/matrix-org/matrix-js-sdk)
+- [React Router](https://reactrouter.com/)
+- [Lucide](https://lucide.dev/) для иконок
+- CSS Modules
+
+## Быстрый старт
+
+### Требования
+
+- Node.js 22+
+- Учётная запись Matrix — например, на [matrix.org](https://matrix.org/)
+
+### Установка
+
+```bash
+git clone https://github.com/kitrasta/Capsa.git
+cd Capsa
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+### Режим разработки
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm run dev
 ```
+
+После запуска Vite выведет локальный адрес приложения в терминал.
+
+### Production-сборка
+
+```bash
+npm run build
+```
+
+### Линтинг
+
+```bash
+npm run lint
+```
+
+## Архитектура
+
+Capsa использует feature-oriented структуру, вдохновлённую Feature-Sliced Design:
+
+```text
+src/
+├── app/       # запуск приложения, роутинг и layout'ы
+├── pages/     # экраны, привязанные к маршрутам
+├── widgets/   # составные блоки интерфейса, например Sidebar
+├── features/  # пользовательские сценарии по мере развития проекта
+├── entities/  # доменные модели Matrix по мере роста приложения
+└── shared/    # общие библиотеки и интеграция с Matrix
+```
+
+Интеграция с Matrix находится в `src/shared/lib/matrix/`. Lifecycle клиента сделан явным:
+
+1. Временный неавторизованный клиент выполняет запрос входа.
+2. Полученная сессия сохраняется в браузере.
+3. Создаётся авторизованный клиент с учётными данными сессии.
+4. При возможности восстанавливается IndexedDB-хранилище.
+5. Запускается Matrix sync.
+6. UI-компоненты подписываются на события синхронизации и отображают актуальное состояние комнат.
+
+Так аутентификация, синхронизация, роутинг и интерфейс остаются разделёнными, вместо того чтобы вся логика Matrix оказалась внутри одного page-компонента.
+
+## Хранение данных Matrix
+
+Capsa использует `IndexedDBStore` из `matrix-js-sdk`, чтобы сохранять данные синхронизации между перезагрузками страницы. Store инициализируется до запуска sync. Если IndexedDB недоступна или не открывается, Capsa переключается на `MemoryStore`, чтобы текущая сессия всё равно могла работать в памяти.
+
+Данные браузера привязаны к текущему origin. Если очистить данные сайта, сохранённая сессия Matrix и локальный sync-кеш будут удалены.
+
+## Участие в разработке
+
+Capsa развивается, и осмысленные улучшения приветствуются. Перед pull request:
+
+1. Делай одно изменение за раз.
+2. Сохраняй строгую типизацию TypeScript.
+3. Предпочитай реальное поведение Matrix моковым данным.
+4. Запусти `npm run lint` и `npm run build`.
+5. Опиши, какую проблему пользователя решает изменение.
+
+## Roadmap
+
+- [ ] Живой синхронизированный список комнат
+- [ ] Роуты комнат и состояние выбранного чата
+- [ ] Таймлайн сообщений
+- [ ] Отправка и получение сообщений
+- [ ] Непрочитанные сообщения и read receipts
+- [ ] Личные сообщения и создание комнат
+- [ ] Поиск по сообщениям
+- [ ] Уведомления и presence
+- [ ] Поддержка end-to-end encryption
+- [ ] Адаптивный интерфейс для мобильных устройств
+
+## Лицензия
+
+Лицензия будет добавлена до первого публичного релиза.
+
+---
+
+**Capsa — Matrix-клиент с понятным интерфейсом и без лишнего шума.**
