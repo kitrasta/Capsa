@@ -20,7 +20,8 @@ const MainLayout = () => {
             } catch (error) {
                 console.error('Failed to start Matrix client', error)
             }
-}
+};
+        startMatrix();
     })
     return (
         <div className={styles.wrapper}>
