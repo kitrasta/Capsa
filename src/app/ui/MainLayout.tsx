@@ -22,7 +22,7 @@ const MainLayout = () => {
             }
 };
         startMatrix();
-    })
+    }, [])
     return (
         <div className={styles.wrapper}>
             <aside className={styles.sidebar}><Sidebar /></aside>
