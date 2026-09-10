@@ -37,10 +37,13 @@ const SearchBar = ({searchTerm, onSearchTermChange, results, loading, onRoomClic
 
             {loading && <span>Loading...</span>}
             {results.map((room) => (
+                <RoomSearchResult 
                 key={room.room_id}
                 name={room.name ?? room.room_id}
                 membersCount={room.num_joined_members}
                 onClick={() => onRoomClick(room.room_id)}
+                />
+                
                 
             ))}
 
