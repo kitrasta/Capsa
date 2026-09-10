@@ -1,7 +1,49 @@
-import { createClient } from 'matrix-js-sdk';
-import type {LoginResponse, IPublicRoomsChunkRoom, Room} from "matrix-js-sdk";
-import {getSession} from './session'
-const client = createClient({ baseUrl: 'https://matrix.org' });
+import { createClient, MemoryStore, IndexedDBStore} from 'matrix-js-sdk';
+import type {LoginResponse, IPublicRoomsChunkRoom, Room, MatrixClient} from "matrix-js-sdk";
+import {getSession} from './session';
+import type { MatrixSession } from './session';
+
+let client: MatrixClient | null = null
+
+const createStore = async () => {
+    try {
+        const store = new IndexedDBStore({
+            indexedDB: window.indexedDB,
+            localStorage: window.localStorage,
+            dbName: 'capsa-matrix-store',
+
+        });
+        await store.startup();
+        return store;
+
+    } catch (error) {
+        console.warn('IndexedDB store failed, falling back to MemoryStore', error);
+        return new MemoryStore();
+    }
+};
+
+export const initClient = async (session: MatrixSession): Promise<MatrixClient> => {
+    if (client) {
+        client.stopClient();
+    }
+    const store = await createStore();
+    client = createClient({
+        baseUrl: 'https://matrix.org',
+        accessToken: session.accessToken,
+        userId: session.userId,
+        deviceId: session.deviceId,
+        store,
+    });
+    return client;
+} 
+
+export const startClient = async (): Promise<void> => {
+    const matrixClient = getClient();
+    if (!matrixClient.getSyncState()) {
+        await matrixClient.startClient();
+    }
+};
+
 
 export const loginUser = async (
     login: string,
