@@ -47,7 +47,7 @@ export const startClient = async (): Promise<void> => {
 
 export const loginUser = async (
     login: string,
-    password: ***,
+    password: string,
 ): Promise<LoginResponse> => {
     const tempClient = createClient({ baseUrl: 'https://matrix.org' });
     return tempClient.loginRequest({  
@@ -59,7 +59,8 @@ export const loginUser = async (
         },
         password,
     });
-    };
+};
+    
 
 
 
