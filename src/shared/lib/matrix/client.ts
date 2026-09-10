@@ -71,9 +71,9 @@ export const getClient = (): MatrixClient => {
 
     if (!client) {
         throw new Error('Matrix client not initialized — call initClient() first')
-
+    }
     return client
-}
+
 };
 
 export const searchPublicRooms = async (
