@@ -1,0 +1,13 @@
+.result {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    color: var(--c-text-1);
+}
+
+.members {
+    color: var(--c-text-2);
+    font-size: 12px;
+}
