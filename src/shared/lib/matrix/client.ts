@@ -67,14 +67,14 @@ export const loginUser = async (
 
  
 
-export const getClient = () => {
-    const session = getSession();
-    if (!session) {
-        throw new Error('Ошибка')
-    }
-    client.setAccessToken(session.accessToken);
+export const getClient = (): MatrixClient => {
+
+    if (!client) {
+        throw new Error('Matrix client not initialized — call initClient() first')
+
     return client
 }
+};
 
 export const searchPublicRooms = async (
     query: string
