@@ -1,6 +1,5 @@
 import { createClient, MemoryStore, IndexedDBStore} from 'matrix-js-sdk';
 import type {LoginResponse, IPublicRoomsChunkRoom, Room, MatrixClient} from "matrix-js-sdk";
-import {getSession} from './session';
 import type { MatrixSession } from './session';
 
 let client: MatrixClient | null = null

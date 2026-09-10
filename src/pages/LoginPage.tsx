@@ -1,18 +1,18 @@
 import style from './LoginPage.module.css';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser } from '../shared/lib/matrix/client';
+import { initClient, loginUser, startClient } from '../shared/lib/matrix/client';
 import { saveSession, getSession } from '../shared/lib/matrix/session';
 
 const LoginPage = () => {
-    const session = getSession();
+    const savedSession = getSession();
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (session) {
+        if (savedSession) {
             navigate('/chats');
         }
-    }, [session])
+    }, [savedSession, navigate])
 
     const [login, setLogin] = useState('');
     const [password, setPassword] = useState('')
@@ -22,12 +22,15 @@ const LoginPage = () => {
 
         try {
             const result = await loginUser(login, password);
+            const session = {
+                accessToken: result.access_token,
+                userId: result.user_id,
+                deviceId: result.device_id
+            }
 
-                saveSession({
-                    accessToken: result.access_token,
-                    userId: result.user_id,
-                    deviceId: result.device_id
-                });
+                saveSession(session);
+                await initClient(session)
+                await startClient()
                     
                 navigate('/chats');
             
