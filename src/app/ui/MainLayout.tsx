@@ -7,7 +7,7 @@ import { initClient, startClient } from '../../shared/lib/matrix/client'
 
 const MainLayout = () => {
 
-    const [isMatrixReady, setIsmatrixReady] = useState(false)
+    const [isMatrixReady, setIsMatrixReady] = useState(false)
 
 
     useEffect(() => {
@@ -19,7 +19,7 @@ const MainLayout = () => {
             try {
                 await initClient(session);
                 await startClient();
-                setIsmatrixReady(true)
+                setIsMatrixReady(true)
             } catch (error) {
                 console.error('Failed to start Matrix client', error)
             }

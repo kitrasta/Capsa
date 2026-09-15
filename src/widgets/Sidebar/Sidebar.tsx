@@ -73,9 +73,9 @@ const Sidebar = () => {
                 loading={loading}
                 onRoomClick={handleRoomClick} />
 
-                <div className={styles.rooms}>
+                <div>
                     {myRooms.map((room) => (
-                        <div key={room.roomId}>
+                        <div className={styles.room} key={room.roomId}>
                             {room.name}
                         </div>
                     ))}
