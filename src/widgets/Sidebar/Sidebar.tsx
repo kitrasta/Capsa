@@ -53,6 +53,8 @@ const Sidebar = () => {
     const handleRoomClick = async (roomId: string) => {
         try {
             await joinRoom(roomId);
+            const rooms = await getMyRooms();
+            setMyRooms(rooms);
         } catch (error) {
             console.error('че то сломалось:', error)
         }
