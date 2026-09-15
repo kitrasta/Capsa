@@ -1,11 +1,13 @@
 import styles from './MainLayout.module.css';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../../widgets/Sidebar/Sidebar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getSession } from '../../shared/lib/matrix/session';
 import { initClient, startClient } from '../../shared/lib/matrix/client'
 
 const MainLayout = () => {
+
+    const [isMatrixReady, setIsmatrixready] = useState(false)
 
 
     useEffect(() => {
@@ -17,6 +19,7 @@ const MainLayout = () => {
             try {
                 await initClient(session);
                 await startClient();
+                setIsmatrixready(true)
             } catch (error) {
                 console.error('Failed to start Matrix client', error)
             }
@@ -25,7 +28,8 @@ const MainLayout = () => {
     }, [])
     return (
         <div className={styles.wrapper}>
-            <aside className={styles.sidebar}><Sidebar /></aside>
+            <aside className={styles.sidebar}>
+                {isMatrixReady ? <Sidebar /> : <p>Загрузка Matrix...</p>}</aside>
             <main className={styles.content}><Outlet /></main>
 
         </div>
