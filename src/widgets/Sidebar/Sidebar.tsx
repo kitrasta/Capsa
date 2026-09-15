@@ -1,12 +1,14 @@
 import styles from './Sidebar.module.css';
 import Navbar from './Navbar/Navbar';
 import SearchBar from './Search/SearchBar';
-import { useState, useEffect } from 'react';
+import {useLocation} from 'react-router-dom'
+import { useState, useEffect} from 'react';
 import { searchPublicRooms, joinRoom, getMyRooms } from '../../shared/lib/matrix/client';
 import type { IPublicRoomsChunkRoom, Room } from 'matrix-js-sdk';
 
 
 const Sidebar = () => {
+    const {pathname} = useLocation();
 
 
 
@@ -73,6 +75,7 @@ const Sidebar = () => {
                 loading={loading}
                 onRoomClick={handleRoomClick} />
 
+            {pathname === '/chats' && (
                 <div className={styles.rooms}>
                     {myRooms.map((room) => (
                         <div className={styles.room} key={room.roomId}>
@@ -80,6 +83,9 @@ const Sidebar = () => {
                         </div>
                     ))}
                 </div>
+                
+            )}
+                
                     
 
                 
