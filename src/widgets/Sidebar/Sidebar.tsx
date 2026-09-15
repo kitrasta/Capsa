@@ -2,7 +2,7 @@ import styles from './Sidebar.module.css';
 import Navbar from './Navbar/Navbar';
 import SearchBar from './Search/SearchBar';
 import { useState, useEffect } from 'react';
-import { searchPublicRooms, joinRoom } from '../../shared/lib/matrix/client';
+import { searchPublicRooms, joinRoom, getMyRooms } from '../../shared/lib/matrix/client';
 import type { IPublicRoomsChunkRoom, Room } from 'matrix-js-sdk';
 import { ClientEvent, SyncState } from 'matrix-js-sdk';
 import { getClient } from '../../shared/lib/matrix/client';
