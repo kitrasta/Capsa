@@ -34,6 +34,14 @@ const Sidebar = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    useEffect(() => {
+        const loadRooms = async () => {
+            const rooms = await getMyRooms();
+            setMyRooms(rooms);
+        };
+        loadRooms();
+    }, []);
+
 
 
     const handleSearchChange = (value: string) => {
