@@ -1,5 +1,9 @@
-import styles from './RoomList.module.css'
-import {useState, useEffect} from 'react'
+import styles from './RoomList.module.css';
+import {useState, useEffect} from 'react';
+import {Room} from 'matrix-js-sdk'
+import {joinRoom, getMyRooms} from '../../../shared/lib/matrix/client'
+
+
 
 
 const RoomList = () => {
@@ -28,7 +32,7 @@ const RoomList = () => {
     return (
         <>
     
-          {pathname === '/chats' && (
+
                 <div className={styles.rooms}>
                     {myRooms.map((room) => (
                         <div className={styles.room} key={room.roomId}>
