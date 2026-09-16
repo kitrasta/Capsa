@@ -15,7 +15,7 @@ const Sidebar = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<IPublicRoomsChunkRoom[]>([]);
     const [loading, setLoading] = useState(false);
-    const [myRooms, setMyRooms] = useState<Room[]>([])
+
 
     useEffect(() => {
         if (searchTerm === '') return;
@@ -35,13 +35,7 @@ const Sidebar = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    useEffect(() => {
-        const loadRooms = async () => {
-            const rooms = await getMyRooms();
-            setMyRooms(rooms);
-        };
-        loadRooms();
-    }, []);
+
 
 
 
@@ -52,16 +46,7 @@ const Sidebar = () => {
         }
     };
 
-    const handleRoomClick = async (roomId: string) => {
-        try {
-            await joinRoom(roomId);
-            const rooms = await getMyRooms();
-            setMyRooms(rooms);
-        } catch (error) {
-            console.error('че то сломалось:', error)
-        }
 
-    }
 
 
     return (
@@ -75,14 +60,7 @@ const Sidebar = () => {
                 loading={loading}
                 onRoomClick={handleRoomClick} />
 
-            {pathname === '/chats' && (
-                <div className={styles.rooms}>
-                    {myRooms.map((room) => (
-                        <div className={styles.room} key={room.roomId}>
-                            {room.name}
-                        </div>
-                    ))}
-                </div>
+      
                 
             )}
                 

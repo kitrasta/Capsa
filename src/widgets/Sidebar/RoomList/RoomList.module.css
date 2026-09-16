@@ -1,0 +1,33 @@
+.rooms {
+    min-height: 0;
+    overflow-y: auto;
+    padding: 4px 6px 8px;
+}
+
+.room {
+    display: flex;
+    align-items: center;
+
+    min-height: 52px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+
+    color: var(--c-text-1);
+    font-size: 15px;
+    line-height: 20px;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    cursor: pointer;
+}
+
+.room:hover {
+    background: var(--c-bg-soft);
+}
+
+.room:active {
+    background: var(--c-brand);
+    color: var(--c-bg);
+}
