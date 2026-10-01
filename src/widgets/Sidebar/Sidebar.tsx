@@ -1,25 +1,19 @@
 import styles from './Sidebar.module.css';
 import Navbar from './Navbar/Navbar';
 import SearchBar from './Search/SearchBar';
-import RoomList from '../Sidebar/RoomList/RoomList'
-import { useState, useEffect} from 'react';
-import {useLocation} from 'react-router-dom'
-import { searchPublicRooms} from '../../shared/lib/matrix/client';
-import type { IPublicRoomsChunkRoom} from 'matrix-js-sdk';
-
-
-const pathname = useLocation();
-
+import RoomList from './RoomList/RoomList';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { searchPublicRooms, joinRoom } from '../../shared/lib/matrix/client';
+import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
 
 const Sidebar = () => {
-
-
-
+    const { pathname } = useLocation();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<IPublicRoomsChunkRoom[]>([]);
     const [loading, setLoading] = useState(false);
-
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         if (searchTerm === '') return;
@@ -39,10 +33,6 @@ const Sidebar = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-
-
-
-
     const handleSearchChange = (value: string) => {
         setSearchTerm(value);
         if (value === '') {
@@ -50,8 +40,16 @@ const Sidebar = () => {
         }
     };
 
-
-
+    const handleRoomClick = async (roomId: string) => {
+        try {
+            await joinRoom(roomId);
+            setSearchTerm('');
+            setResults([]);
+            setReloadKey((key) => key + 1);
+        } catch (error) {
+            console.error('Error joining room:', error);
+        }
+    };
 
     return (
         <div className={styles.wrapper}>
@@ -62,26 +60,14 @@ const Sidebar = () => {
                 onSearchTermChange={handleSearchChange}
                 results={results}
                 loading={loading}
-                onRoomClick={handleRoomClick} />
+                onRoomClick={handleRoomClick}
+            />
 
-                {pathname === '/chats' && 
-                    <RoomList />
-                }
-
-      
-                
-            
-                
-                    
-
-                
+            {pathname === '/chats' && <RoomList reloadKey={reloadKey} />}
 
             <Navbar />
-
         </div>
-
-
-    )
-}
+    );
+};
 
 export default Sidebar;
