@@ -1,7 +1,7 @@
 import style from './LoginPage.module.css';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { initClient, loginUser, startClient } from '../shared/lib/matrix/client';
+import { loginUser } from '../shared/lib/matrix/client';
 import { saveSession, getSession } from '../shared/lib/matrix/session';
 
 const LoginPage = () => {
@@ -22,27 +22,16 @@ const LoginPage = () => {
 
         try {
             const result = await loginUser(login, password);
-            const session = {
+            saveSession({
                 accessToken: result.access_token,
                 userId: result.user_id,
-                deviceId: result.device_id
-            }
+                deviceId: result.device_id,
+            });
 
-                saveSession(session);
-                await initClient(session)
-                await startClient()
-                    
-                navigate('/chats');
-            
-
-
-            console.log(result);
-        }   catch (error) {
+            navigate('/chats');
+        } catch (error) {
             console.error('Login failed', error)
         }
-
-
-
     }
 
 
