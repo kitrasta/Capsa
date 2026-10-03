@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RoomEvent } from 'matrix-js-sdk';
+import { ClientEvent, RoomEvent } from 'matrix-js-sdk';
 import { getClient } from '../../shared/lib/matrix/client';
 import Avatar from '../Sidebar/RoomList/Avatar';
 import MessageBubble from './MessageBubble';
@@ -10,14 +10,36 @@ interface Props {
     roomId: string;
 }
 
+const SCROLLBACK_PAGE = 40;
+const SCROLL_LOAD_THRESHOLD = 100; // px от верха, когда тянем историю
+
 const ChatView = ({ roomId }: Props) => {
     const navigate = useNavigate();
     const client = getClient();
-    const room = client.getRoom(roomId);
+
+    // комната может еще не быть в сторе (F5, sync не завершился) —
+    // поэтому отслеживаем её появление реактивно
+    const syncedRoom = useSyncExternalStore(
+        (onChange) => {
+            client.on(ClientEvent.Sync, onChange);
+            client.on(ClientEvent.Room, onChange);
+            return () => {
+                client.off(ClientEvent.Sync, onChange);
+                client.off(ClientEvent.Room, onChange);
+            };
+        },
+        () => client.getRoom(roomId),
+        () => undefined,
+    );
+    const room = client.getRoom(roomId) ?? syncedRoom;
 
     const [text, setText] = useState('');
     const [timelineVersion, setTimelineVersion] = useState(0);
+    const [loadingHistory, setLoadingHistory] = useState(false);
+    const messagesRef = useRef<HTMLDivElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
+    const isLoadingHistoryRef = useRef(false);
+    const wasAtBottomRef = useRef(true);
 
     // новые сообщения / локальные эхо — перерисовываем ленту
     useEffect(() => {
@@ -47,10 +69,38 @@ const ChatView = ({ roomId }: Props) => {
             );
     }, [room, timelineVersion]);
 
-    // автоскролл вниз при новых сообщениях
+    // автоскролл вниз — только если юзер был у нижнего края
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ block: 'end' });
+        if (wasAtBottomRef.current) {
+            bottomRef.current?.scrollIntoView({ block: 'end' });
+        }
     }, [messages.length, roomId]);
+
+    // запоминаем, у края ли прокрутка
+    const handleScroll = () => {
+        const el = messagesRef.current;
+        if (!el) return;
+
+        const atBottom =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+        wasAtBottomRef.current = atBottom;
+
+        // пагинация: дотянули до верха — тянем историю
+        if (el.scrollTop > SCROLL_LOAD_THRESHOLD) return;
+        if (isLoadingHistoryRef.current || !room) return;
+
+        isLoadingHistoryRef.current = true;
+        setLoadingHistory(true);
+        client
+            .scrollback(room, SCROLLBACK_PAGE)
+            .catch((error) => {
+                console.error('Failed to load history:', error);
+            })
+            .finally(() => {
+                isLoadingHistoryRef.current = false;
+                setLoadingHistory(false);
+            });
+    };
 
     if (!room) {
         return (
@@ -95,7 +145,14 @@ const ChatView = ({ roomId }: Props) => {
                 </div>
             </header>
 
-            <div className={styles.messages}>
+            <div
+                className={styles.messages}
+                ref={messagesRef}
+                onScroll={handleScroll}
+            >
+                {loadingHistory && (
+                    <div className={styles.historyLoader}>Загрузка истории…</div>
+                )}
                 {messages.map((event) => (
                     <MessageBubble
                         key={event.getId()}

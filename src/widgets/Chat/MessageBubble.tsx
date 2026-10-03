@@ -1,4 +1,5 @@
 import type { MatrixEvent, Room } from 'matrix-js-sdk';
+import { EventStatus } from 'matrix-js-sdk';
 import styles from './MessageBubble.module.css';
 
 interface Props {
@@ -13,11 +14,28 @@ const formatTime = (ts: number): string =>
         minute: '2-digit',
     });
 
+// честный статус отправки своего сообщения
+const getSendStatus = (event: MatrixEvent): string | null => {
+    const status = event.status;
+
+    if (status === EventStatus.SENDING || status === EventStatus.QUEUED || status === EventStatus.ENCRYPTING) {
+        return '🕓'; // еще не ушли на сервер
+    }
+    if (status === EventStatus.SENT) {
+        return '✓'; // сервер принял, эхо еще не пришло
+    }
+    if (status === EventStatus.NOT_SENT || status === EventStatus.CANCELLED) {
+        return '⚠'; // ошибка отправки
+    }
+    return null; // подтверждено сервером (обычное событие из sync)
+};
+
 const MessageBubble = ({ event, room, isOwn }: Props) => {
     const body = event.getContent<{ body?: string }>().body ?? '';
     const senderId = event.getSender() ?? '';
     const senderName = room.currentState.getMember(senderId)?.name ?? senderId;
     const ts = event.getTs();
+    const sendStatus = isOwn ? getSendStatus(event) : null;
 
     return (
         <div className={`${styles.message} ${isOwn ? styles.own : ''}`}>
@@ -28,7 +46,7 @@ const MessageBubble = ({ event, room, isOwn }: Props) => {
                 <div className={styles.text}>{body}</div>
                 <div className={styles.time}>
                     {formatTime(ts)}
-                    {isOwn && <span className={styles.status}>✓✓</span>}
+                    {sendStatus && <span className={styles.status}>{sendStatus}</span>}
                 </div>
             </div>
         </div>
