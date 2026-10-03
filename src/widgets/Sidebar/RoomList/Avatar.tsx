@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { Room } from 'matrix-js-sdk';
+import { RoomStateEvent } from 'matrix-js-sdk';
 import { getClient } from '../../../shared/lib/matrix/client';
 import styles from './Avatar.module.css';
 
@@ -8,21 +9,33 @@ interface Props {
     size: number;
 }
 
-const useAvatarUrl = (room: Room, size: number): string | null => {
-    const [url, setUrl] = useState<string | null>(null);
+// аватар комнаты — это state-событие m.room.avatar:
+// подписываемся на смены state и читаем mxc реактивно
+const useMxcAvatarUrl = (room: Room): string | null =>
+    useSyncExternalStore(
+        (onChange) => {
+            room.currentState.on(RoomStateEvent.Events, onChange);
+            return () => {
+                room.currentState.off(RoomStateEvent.Events, onChange);
+            };
+        },
+        () => room.getMxcAvatarUrl(),
+        () => null,
+    );
+
+// скачиваем картинку с авторизацией (MSC3912):
+// в <img> напрямую заголовок Authorization не передать
+const useAvatarObjectUrl = (mxcUrl: string | null, size: number): string | null => {
+    const [objectUrl, setObjectUrl] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!mxcUrl) return;
+
         let revoked: string | null = null;
         let cancelled = false;
 
         const load = async () => {
             const client = getClient();
-            const mxcUrl = room.getMxcAvatarUrl();
-            if (!mxcUrl) return;
-
-            // аутентифицированный эндпоинт медиа (MSC3912):
-            // картинку надо запросить с заголовком Authorization,
-            // в <img> напрямую она не открывается
             const httpUrl = client.mxcUrlToHttp(
                 mxcUrl,
                 size,
@@ -45,9 +58,9 @@ const useAvatarUrl = (room: Room, size: number): string | null => {
                 const blob = await response.blob();
                 if (cancelled) return;
 
-                const objectUrl = URL.createObjectURL(blob);
-                revoked = objectUrl;
-                setUrl(objectUrl);
+                const url = URL.createObjectURL(blob);
+                revoked = url;
+                setObjectUrl(url);
             } catch (error) {
                 console.error('Failed to load room avatar:', error);
             }
@@ -61,15 +74,16 @@ const useAvatarUrl = (room: Room, size: number): string | null => {
                 URL.revokeObjectURL(revoked);
             }
         };
-    }, [room, size]);
+    }, [mxcUrl, size]);
 
-    return url;
+    return objectUrl;
 };
 
 const Avatar = ({ room, size }: Props) => {
-    const avatarUrl = useAvatarUrl(room, size);
+    const mxcUrl = useMxcAvatarUrl(room);
+    const avatarUrl = useAvatarObjectUrl(mxcUrl, size);
 
-    if (avatarUrl) {
+    if (mxcUrl && avatarUrl) {
         return (
             <img
                 className={styles.avatar}

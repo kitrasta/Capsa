@@ -1,37 +1,43 @@
 import styles from './RoomListItem.module.css';
-import type { Room, MatrixClient } from 'matrix-js-sdk';
+import type { Room } from 'matrix-js-sdk';
+import { getClient } from '../../../shared/lib/matrix/client';
 import Avatar from './Avatar';
 
 interface Props {
     room: Room;
-    client: MatrixClient;
 }
 
 const AVATAR_SIZE = 40;
 
-const getLastMessagePreview = (room: Room): { sender: string; text: string } | null => {
+interface LastMessagePreview {
+    senderId: string;
+    senderName: string;
+    text: string;
+}
+
+const getLastMessagePreview = (room: Room): LastMessagePreview | null => {
     const event = room.getLastLiveEvent();
     if (!event) return null;
 
     const senderId = event.getSender() ?? '';
-    const sender = room.currentState.getMember(senderId)?.name ?? senderId;
+    const senderName = room.currentState.getMember(senderId)?.name ?? senderId;
 
     if (event.getType() === 'm.room.message') {
         const body = event.getContent<{ body?: string }>().body;
         if (!body) return null;
-        return { sender, text: body };
+        return { senderId, senderName, text: body };
     }
 
     if (event.getType() === 'm.room.member') {
-        return { sender, text: 'обновил(а) профиль' };
+        return { senderId, senderName, text: 'обновил(а) профиль' };
     }
 
     return null;
 };
 
-const RoomListItem = ({ room, client }: Props) => {
+const RoomListItem = ({ room }: Props) => {
     const lastMessage = getLastMessagePreview(room);
-    const isMe = lastMessage?.sender === client.getUserId();
+    const isMe = lastMessage?.senderId === getClient().getUserId();
 
     return (
         <div className={styles.room}>
@@ -41,7 +47,9 @@ const RoomListItem = ({ room, client }: Props) => {
                 <div className={styles.name}>{room.name}</div>
                 {lastMessage && (
                     <div className={styles.lastMessage}>
-                        <span className={styles.sender}>{isMe ? 'Вы' : lastMessage.sender}:</span>{' '}
+                        <span className={styles.sender}>
+                            {isMe ? 'Вы' : lastMessage.senderName}:
+                        </span>{' '}
                         <span className={styles.text}>{lastMessage.text}</span>
                     </div>
                 )}

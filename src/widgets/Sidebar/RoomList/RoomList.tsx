@@ -16,14 +16,25 @@ const RoomList = () => {
                 .filter((room) => room.getMyMembership() === 'join')
                 // самые свежие сверху
                 .sort((a, b) => b.getLastActiveTimestamp() - a.getLastActiveTimestamp());
-            setMyRooms(rooms);
+
+            // пропускаем рендер, если список фактически не изменился:
+            // sync-циклы сами по себе ничего не меняют
+            setMyRooms((prev) => {
+                if (
+                    prev.length === rooms.length &&
+                    prev.every((room, i) => room === rooms[i])
+                ) {
+                    return prev;
+                }
+                return rooms;
+            });
         };
 
         refresh();
 
-        // первый sync завершился — стор наполнился данными
+        // после первого sync стор наполнен — показываем комнаты
         const handleSync = (state: SyncState) => {
-            if (state === SyncState.Prepared || state === SyncState.Syncing) {
+            if (state === SyncState.Prepared) {
                 refresh();
             }
         };
@@ -47,7 +58,7 @@ const RoomList = () => {
     return (
         <div className={styles.rooms}>
             {myRooms.map((room) => (
-                <RoomListItem key={room.roomId} room={room} client={getClient()} />
+                <RoomListItem key={room.roomId} room={room} />
             ))}
         </div>
     );
