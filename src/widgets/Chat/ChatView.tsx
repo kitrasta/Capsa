@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClientEvent, RoomEvent } from 'matrix-js-sdk';
 import { getClient } from '../../shared/lib/matrix/client';
@@ -31,7 +31,7 @@ const ChatView = ({ roomId }: Props) => {
         () => client.getRoom(roomId),
         () => undefined,
     );
-    const room = client.getRoom(roomId) ?? syncedRoom;
+    const room = syncedRoom;
 
     const [text, setText] = useState('');
     const [timelineVersion, setTimelineVersion] = useState(0);
@@ -40,6 +40,10 @@ const ChatView = ({ roomId }: Props) => {
     const bottomRef = useRef<HTMLDivElement>(null);
     const isLoadingHistoryRef = useRef(false);
     const wasAtBottomRef = useRef(true);
+    // история исчерпана: дальше верха ничего нет
+    const historyExhaustedRef = useRef(false);
+    // позиция до подгрузки: {scrollHeight, scrollTop}
+    const scrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
 
     // новые сообщения / локальные эхо — перерисовываем ленту
     useEffect(() => {
@@ -76,6 +80,21 @@ const ChatView = ({ roomId }: Props) => {
         }
     }, [messages.length, roomId]);
 
+    // сохраняем позицию чтения при подгрузке истории сверху:
+    // до рендера новых событий запоминаем scrollHeight/scrollTop,
+    // после — компенсируем прирост высоты, чтобы юзер продолжал
+    // видеть то же сообщение
+    useLayoutEffect(() => {
+        const el = messagesRef.current;
+        if (!el) return;
+
+        const anchor = scrollAnchorRef.current;
+        if (anchor && el.scrollHeight > anchor.scrollHeight) {
+            el.scrollTop = anchor.scrollTop + (el.scrollHeight - anchor.scrollHeight);
+            scrollAnchorRef.current = null;
+        }
+    }, [timelineVersion, messages.length]);
+
     // запоминаем, у края ли прокрутка
     const handleScroll = () => {
         const el = messagesRef.current;
@@ -89,16 +108,42 @@ const ChatView = ({ roomId }: Props) => {
         if (el.scrollTop > SCROLL_LOAD_THRESHOLD) return;
         if (isLoadingHistoryRef.current || !room) return;
 
+        // дошли до начала истории — дальше запросов нет
+        if (room.oldState.paginationToken === null) {
+            historyExhaustedRef.current = true;
+            return;
+        }
+        if (historyExhaustedRef.current) return;
+
+        // фиксируем позицию чтения до подгрузки
+        scrollAnchorRef.current = {
+            scrollHeight: el.scrollHeight,
+            scrollTop: el.scrollTop,
+        };
+
         isLoadingHistoryRef.current = true;
         setLoadingHistory(true);
         client
             .scrollback(room, SCROLLBACK_PAGE)
+            .then(() => {
+                // scrollback мог вернуть меньше, чем просили:
+                // если событий не прибавилось — история исчерпана
+                if (room.oldState.paginationToken === null) {
+                    historyExhaustedRef.current = true;
+                }
+            })
             .catch((error) => {
                 console.error('Failed to load history:', error);
             })
             .finally(() => {
                 isLoadingHistoryRef.current = false;
                 setLoadingHistory(false);
+                // если событий не пришло — сбрасываем якорь,
+                // нечего компенсировать
+                if (scrollAnchorRef.current &&
+                    messagesRef.current?.scrollHeight === scrollAnchorRef.current.scrollHeight) {
+                    scrollAnchorRef.current = null;
+                }
             });
     };
 
@@ -116,6 +161,9 @@ const ChatView = ({ roomId }: Props) => {
         if (!value) return;
 
         setText('');
+        // юзер сам пишет — хочет видеть своё сообщение:
+        // разрешаем автоскролл, даже если читал историю выше
+        wasAtBottomRef.current = true;
         try {
             await client.sendTextMessage(roomId, value);
         } catch (error) {
