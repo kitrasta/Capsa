@@ -1,22 +1,45 @@
 import styles from './RoomList.module.css';
 import { useState, useEffect } from 'react';
-import { Room } from 'matrix-js-sdk';
-import { getMyRooms } from '../../../shared/lib/matrix/client';
+import { Room, ClientEvent, RoomEvent, SyncState } from 'matrix-js-sdk';
+import { getClient } from '../../../shared/lib/matrix/client';
 
-interface Props {
-    reloadKey?: number;
-}
-
-const RoomList = ({ reloadKey = 0 }: Props) => {
+const RoomList = () => {
     const [myRooms, setMyRooms] = useState<Room[]>([]);
 
     useEffect(() => {
-        const loadRooms = async () => {
-            const rooms = await getMyRooms();
+        const client = getClient();
+
+        const refresh = () => {
+            // берем комнаты из локального стора клиента,
+            // чтобы не зависеть от серверного запроса
+            const rooms = client
+                .getRooms()
+                .filter((room) => room.getMyMembership() === 'join');
             setMyRooms(rooms);
         };
-        loadRooms();
-    }, [reloadKey]);
+
+        refresh();
+
+        // первый sync завершился — стора наполнилась данными
+        const handleSync = (state: SyncState) => {
+            if (state === SyncState.Prepared || state === SyncState.Syncing) {
+                refresh();
+            }
+        };
+
+        // вступили в комнату / получили инвайт / комнату добавили в стор
+        const handleRoom = () => refresh();
+
+        client.on(ClientEvent.Sync, handleSync);
+        client.on(ClientEvent.Room, handleRoom);
+        client.on(RoomEvent.MyMembership, handleRoom);
+
+        return () => {
+            client.off(ClientEvent.Sync, handleSync);
+            client.off(ClientEvent.Room, handleRoom);
+            client.off(RoomEvent.MyMembership, handleRoom);
+        };
+    }, []);
 
     return (
         <div className={styles.rooms}>

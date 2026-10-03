@@ -13,7 +13,6 @@ const Sidebar = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<IPublicRoomsChunkRoom[]>([]);
     const [loading, setLoading] = useState(false);
-    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         if (searchTerm === '') return;
@@ -45,7 +44,6 @@ const Sidebar = () => {
             await joinRoom(roomId);
             setSearchTerm('');
             setResults([]);
-            setReloadKey((key) => key + 1);
         } catch (error) {
             console.error('Error joining room:', error);
         }
@@ -63,7 +61,7 @@ const Sidebar = () => {
                 onRoomClick={handleRoomClick}
             />
 
-            {pathname === '/chats' && <RoomList reloadKey={reloadKey} />}
+            {pathname === '/chats' && <RoomList />}
 
             <Navbar />
         </div>
