@@ -2,10 +2,19 @@ import styles from './RoomList.module.css';
 import { useState, useEffect } from 'react';
 import { Room, ClientEvent, RoomEvent, SyncState } from 'matrix-js-sdk';
 import { getClient } from '../../../shared/lib/matrix/client';
+import { useLocation, useNavigate } from 'react-router-dom';
 import RoomListItem from './RoomListItem';
 
 const RoomList = () => {
+    const navigate = useNavigate();
+    const { pathname } = useLocation();
+
     const [myRooms, setMyRooms] = useState<Room[]>([]);
+
+    // /chats/:roomId, roomId URL-encoded (содержит ! и :)
+    const activeRoomId = pathname.startsWith('/chats/')
+        ? decodeURIComponent(pathname.slice('/chats/'.length))
+        : null;
 
     useEffect(() => {
         const client = getClient();
@@ -55,10 +64,19 @@ const RoomList = () => {
         };
     }, []);
 
+    const handleRoomClick = (roomId: string) => {
+        navigate(`/chats/${encodeURIComponent(roomId)}`);
+    };
+
     return (
         <div className={styles.rooms}>
             {myRooms.map((room) => (
-                <RoomListItem key={room.roomId} room={room} />
+                <RoomListItem
+                    key={room.roomId}
+                    room={room}
+                    active={room.roomId === activeRoomId}
+                    onClick={handleRoomClick}
+                />
             ))}
         </div>
     );

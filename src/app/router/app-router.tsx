@@ -18,6 +18,7 @@ const AppRouter = () => {
             <Route element={<AuthGuard />}>
                 <Route element={<MainLayout />}>
                     <Route path="/chats" element={<ChatsPage />} />
+                    <Route path="/chats/:roomId" element={<ChatsPage />} />
                     <Route path="/contacts" element={<ContactsPage />} />
                     <Route path="/calls" element={<CallsPage />} />
                     <Route path='/settings' element={<SettingsPage />} />

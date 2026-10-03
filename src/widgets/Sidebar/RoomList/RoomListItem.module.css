@@ -23,6 +23,10 @@
     color: var(--c-bg);
 }
 
+.active {
+    background: var(--c-bg-soft);
+}
+
 .info {
     display: flex;
     flex-direction: column;

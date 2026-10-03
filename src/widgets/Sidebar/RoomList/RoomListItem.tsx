@@ -5,6 +5,8 @@ import Avatar from './Avatar';
 
 interface Props {
     room: Room;
+    active?: boolean;
+    onClick: (roomId: string) => void;
 }
 
 const AVATAR_SIZE = 40;
@@ -35,12 +37,15 @@ const getLastMessagePreview = (room: Room): LastMessagePreview | null => {
     return null;
 };
 
-const RoomListItem = ({ room }: Props) => {
+const RoomListItem = ({ room, active = false, onClick }: Props) => {
     const lastMessage = getLastMessagePreview(room);
     const isMe = lastMessage?.senderId === getClient().getUserId();
 
     return (
-        <div className={styles.room}>
+        <div
+            className={`${styles.room} ${active ? styles.active : ''}`}
+            onClick={() => onClick(room.roomId)}
+        >
             <Avatar room={room} size={AVATAR_SIZE} />
 
             <div className={styles.info}>
