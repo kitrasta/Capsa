@@ -2,6 +2,8 @@ import { createClient, MemoryStore, IndexedDBStore} from 'matrix-js-sdk';
 import type {LoginResponse, IPublicRoomsChunkRoom, Room, MatrixClient} from "matrix-js-sdk";
 import type { MatrixSession } from './session';
 
+export const MATRIX_HOMESERVER_URL = 'https://matrix.org';
+
 let client: MatrixClient | null = null
 
 const createStore = async () => {
@@ -27,7 +29,7 @@ export const initClient = async (session: MatrixSession): Promise<MatrixClient> 
     }
     const store = await createStore();
     client = createClient({
-        baseUrl: 'https://matrix.org',
+        baseUrl: MATRIX_HOMESERVER_URL,
         accessToken: session.accessToken,
         userId: session.userId,
         deviceId: session.deviceId,
@@ -48,7 +50,7 @@ export const loginUser = async (
     login: string,
     password: string,
 ): Promise<LoginResponse> => {
-    const tempClient = createClient({ baseUrl: 'https://matrix.org' });
+    const tempClient = createClient({ baseUrl: MATRIX_HOMESERVER_URL });
     return tempClient.loginRequest({  
 
         type: 'm.login.password',

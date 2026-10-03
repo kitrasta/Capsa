@@ -1,0 +1,55 @@
+.room {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    min-height: 52px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+
+    color: var(--c-text-1);
+    cursor: pointer;
+
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.room:hover {
+    background: var(--c-bg-soft);
+}
+
+.room:active {
+    background: var(--c-brand);
+    color: var(--c-bg);
+}
+
+.info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.name {
+    font-size: 15px;
+    line-height: 20px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lastMessage {
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--c-text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sender {
+    color: var(--c-text-3);
+}
+
+.room:active .sender,
+.room:active .lastMessage {
+    color: var(--c-bg);
+}
