@@ -61,7 +61,7 @@ const Sidebar = () => {
                 onRoomClick={handleRoomClick}
             />
 
-            {pathname === '/chats' && <RoomList />}
+            {pathname.startsWith('/chats') && <RoomList />}
 
             <Navbar />
         </div>
