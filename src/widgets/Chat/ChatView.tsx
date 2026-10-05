@@ -165,23 +165,10 @@ const ChatView = ({ roomId }: Props) => {
         }
     }, [timelineVersion, messages.length]);
 
-    // запоминаем, у края ли прокрутка
-    const handleScroll = () => {
-        const el = messagesRef.current;
-        if (!el) return;
-
-        const atBottom =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-        wasAtBottomRef.current = atBottom;
-
-        // доскроллили до низа — тоже помечаем прочитанным
-        if (atBottom) {
-            markRead();
-        }
-
-        // пагинация: дотянули до верха — тянем историю
-        if (el.scrollTop > SCROLL_LOAD_THRESHOLD) return;
-        if (isLoadingHistoryRef.current || !room) return;
+    // подгрузка истории: keepPosition — сохранять позицию чтения
+    // (при доскролле до верха); при автозаполнении не нужно
+    const loadHistory = (keepPosition: boolean) => {
+        if (!room || isLoadingHistoryRef.current) return;
 
         // дошли до начала истории — дальше запросов нет
         if (room.oldState.paginationToken === null) {
@@ -190,20 +177,29 @@ const ChatView = ({ roomId }: Props) => {
         }
         if (historyExhaustedRef.current) return;
 
-        // фиксируем позицию чтения до подгрузки
-        scrollAnchorRef.current = {
-            scrollHeight: el.scrollHeight,
-            scrollTop: el.scrollTop,
-        };
+        if (keepPosition) {
+            const el = messagesRef.current;
+            if (el) {
+                scrollAnchorRef.current = {
+                    scrollHeight: el.scrollHeight,
+                    scrollTop: el.scrollTop,
+                };
+            }
+        }
 
+        const eventsBefore = room.getLiveTimeline().getEvents().length;
         isLoadingHistoryRef.current = true;
         setLoadingHistory(true);
         client
             .scrollback(room, SCROLLBACK_PAGE)
             .then(() => {
-                // scrollback мог вернуть меньше, чем просили:
-                // если событий не прибавилось — история исчерпана
-                if (room.oldState.paginationToken === null) {
+                // история исчерпана, если у начала или событий
+                // не прибавилось (защита от вечного цикла автозагрузки)
+                const eventsAfter = room.getLiveTimeline().getEvents().length;
+                if (
+                    room.oldState.paginationToken === null ||
+                    eventsAfter === eventsBefore
+                ) {
                     historyExhaustedRef.current = true;
                 }
             })
@@ -220,6 +216,47 @@ const ChatView = ({ roomId }: Props) => {
                     scrollAnchorRef.current = null;
                 }
             });
+    };
+
+    // автозаполнение: если лента не заполняет вьюпорт,
+    // onScroll не сработает никогда — грузим историю сами,
+    // пока не появится прокрутка или не исчерпается история
+    useEffect(() => {
+        if (!room || loadingHistory) return;
+
+        const el = messagesRef.current;
+        if (!el) return;
+
+        // уже есть прокрутка и мы не у верха — не мешаем юзеру
+        if (
+            el.scrollHeight > el.clientHeight &&
+            el.scrollTop > SCROLL_LOAD_THRESHOLD
+        ) {
+            return;
+        }
+
+        loadHistory(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [room, messages.length, loadingHistory]);
+
+    // запоминаем, у края ли прокрутка
+    const handleScroll = () => {
+        const el = messagesRef.current;
+        if (!el) return;
+
+        const atBottom =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+        wasAtBottomRef.current = atBottom;
+
+        // доскроллили до низа — тоже помечаем прочитанным
+        if (atBottom) {
+            markRead();
+        }
+
+        // пагинация: дотянули до верха — тянем историю
+        if (el.scrollTop <= SCROLL_LOAD_THRESHOLD) {
+            loadHistory(true);
+        }
     };
 
     if (!room) {
