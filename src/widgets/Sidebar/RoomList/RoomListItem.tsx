@@ -1,5 +1,6 @@
 import styles from './RoomListItem.module.css';
 import type { Room } from 'matrix-js-sdk';
+import { NotificationCountType } from 'matrix-js-sdk';
 import { getClient } from '../../../shared/lib/matrix/client';
 import Avatar from './Avatar';
 
@@ -37,9 +38,14 @@ const getLastMessagePreview = (room: Room): LastMessagePreview | null => {
     return null;
 };
 
+const getUnreadCount = (room: Room): number =>
+    room.getRoomUnreadNotificationCount(NotificationCountType.Total) ?? 0;
+
 const RoomListItem = ({ room, active = false, onClick }: Props) => {
     const lastMessage = getLastMessagePreview(room);
     const isMe = lastMessage?.senderId === getClient().getUserId();
+    const unread = getUnreadCount(room);
+    const hasUnread = unread > 0;
 
     return (
         <div
@@ -49,7 +55,9 @@ const RoomListItem = ({ room, active = false, onClick }: Props) => {
             <Avatar room={room} size={AVATAR_SIZE} />
 
             <div className={styles.info}>
-                <div className={styles.name}>{room.name}</div>
+                <div className={`${styles.name} ${hasUnread ? styles.nameUnread : ''}`}>
+                    {room.name}
+                </div>
                 {lastMessage && (
                     <div className={styles.lastMessage}>
                         <span className={styles.sender}>
@@ -59,6 +67,12 @@ const RoomListItem = ({ room, active = false, onClick }: Props) => {
                     </div>
                 )}
             </div>
+
+            {hasUnread && (
+                <span className={styles.badge}>
+                    {unread > 99 ? '99+' : unread}
+                </span>
+            )}
         </div>
     );
 };

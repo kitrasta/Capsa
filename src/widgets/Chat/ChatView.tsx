@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClientEvent, RoomEvent } from 'matrix-js-sdk';
+import { ClientEvent, RoomEvent, RoomMemberEvent } from 'matrix-js-sdk';
 import { getClient } from '../../shared/lib/matrix/client';
 import Avatar from '../Sidebar/RoomList/Avatar';
 import MessageBubble from './MessageBubble';
@@ -36,6 +36,7 @@ const ChatView = ({ roomId }: Props) => {
     const [text, setText] = useState('');
     const [timelineVersion, setTimelineVersion] = useState(0);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [typingNames, setTypingNames] = useState<string[]>([]);
     const messagesRef = useRef<HTMLDivElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const isLoadingHistoryRef = useRef(false);
@@ -44,6 +45,9 @@ const ChatView = ({ roomId }: Props) => {
     const historyExhaustedRef = useRef(false);
     // позиция до подгрузки: {scrollHeight, scrollTop}
     const scrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+    // отправка статуса печати: не чаще раза в 10 c,
+    // сервер держит его 20 c, чтобы пережить сетевые лаги
+    const lastTypingSentRef = useRef(0);
 
     // новые сообщения / локальные эхо — перерисовываем ленту
     useEffect(() => {
@@ -58,6 +62,40 @@ const ChatView = ({ roomId }: Props) => {
             room.off(RoomEvent.LocalEchoUpdated, handleTimeline);
         };
     }, [room]);
+
+    // typing-индикатор: SDK разбирает m.typing ephemeral-события
+    // и помечает участников, клиент ре-эмитит RoomMemberEvent.Typing
+    useEffect(() => {
+        if (!room) return;
+
+        const myUserId = client.getUserId();
+        const readTyping = () => {
+            const names = room
+                .getMembers()
+                .filter(
+                    (member) => member.typing && member.userId !== myUserId,
+                )
+                .map((member) => member.name);
+            setTypingNames((prev) =>
+                prev.length === names.length &&
+                prev.every((name, i) => name === names[i])
+                    ? prev
+                    : names,
+            );
+        };
+
+        const handleTyping = (_event: unknown, member: { roomId: string }) => {
+            if (member.roomId === roomId) {
+                readTyping();
+            }
+        };
+
+        readTyping();
+        client.on(RoomMemberEvent.Typing, handleTyping);
+        return () => {
+            client.off(RoomMemberEvent.Typing, handleTyping);
+        };
+    }, [client, room, roomId]);
 
     const messages = useMemo(() => {
         if (!room) return [];
@@ -79,6 +117,34 @@ const ChatView = ({ roomId }: Props) => {
             bottomRef.current?.scrollIntoView({ block: 'end' });
         }
     }, [messages.length, roomId]);
+
+    // помечаем комнату прочитанной, когда юзер видит последние сообщения:
+    // при открытии комнаты и при новых сообщениях, если он внизу
+    const lastMarkedEventIdRef = useRef<string | null>(null);
+    const markRead = () => {
+        if (!room) return;
+
+        const lastEvent = room.getLastLiveEvent();
+        const lastEventId = lastEvent?.getId();
+        if (!lastEventId || lastEventId === lastMarkedEventIdRef.current) return;
+
+        lastMarkedEventIdRef.current = lastEventId;
+        client
+            .setRoomReadMarkers(roomId, lastEventId)
+            .catch((error) => {
+                console.error('Failed to mark room as read:', error);
+                lastMarkedEventIdRef.current = null;
+            });
+    };
+
+    useEffect(() => {
+        if (!room || !wasAtBottomRef.current) return;
+
+        // даём автоскроллу отработать и помечаем прочитанным
+        const timer = setTimeout(markRead, 200);
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [room, messages.length]);
 
     // сохраняем позицию чтения при подгрузке истории сверху:
     // до рендера новых событий запоминаем scrollHeight/scrollTop,
@@ -103,6 +169,11 @@ const ChatView = ({ roomId }: Props) => {
         const atBottom =
             el.scrollHeight - el.scrollTop - el.clientHeight < 100;
         wasAtBottomRef.current = atBottom;
+
+        // доскроллили до низа — тоже помечаем прочитанным
+        if (atBottom) {
+            markRead();
+        }
 
         // пагинация: дотянули до верха — тянем историю
         if (el.scrollTop > SCROLL_LOAD_THRESHOLD) return;
@@ -155,12 +226,39 @@ const ChatView = ({ roomId }: Props) => {
         );
     }
 
+    const TYPING_SEND_INTERVAL = 10_000;
+    const TYPING_TIMEOUT = 20_000;
+
+    const handleTextChange = (value: string) => {
+        setText(value);
+
+        if (value.trim() === '') {
+            // поле опустело — перестаем «печатать»
+            lastTypingSentRef.current = 0;
+            client.sendTyping(roomId, false, TYPING_TIMEOUT).catch((error) => {
+                console.error('Failed to send typing state:', error);
+            });
+            return;
+        }
+
+        const now = Date.now();
+        if (now - lastTypingSentRef.current < TYPING_SEND_INTERVAL) return;
+
+        lastTypingSentRef.current = now;
+        client.sendTyping(roomId, true, TYPING_TIMEOUT).catch((error) => {
+            console.error('Failed to send typing state:', error);
+        });
+    };
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const value = text.trim();
         if (!value) return;
 
         setText('');
+        lastTypingSentRef.current = 0;
+        client.sendTyping(roomId, false, TYPING_TIMEOUT).catch(() => {});
+
         // юзер сам пишет — хочет видеть своё сообщение:
         // разрешаем автоскролл, даже если читал историю выше
         wasAtBottomRef.current = true;
@@ -173,6 +271,15 @@ const ChatView = ({ roomId }: Props) => {
     };
 
     const memberCount = room.getJoinedMemberCount();
+
+    const typingStatus =
+        typingNames.length === 1
+            ? `${typingNames[0]} печатает…`
+            : typingNames.length === 2
+              ? `${typingNames[0]} и ${typingNames[1]} печатают…`
+              : typingNames.length > 2
+                ? 'несколько человек печатают…'
+                : null;
 
     return (
         <div className={styles.wrapper}>
@@ -188,7 +295,7 @@ const ChatView = ({ roomId }: Props) => {
                 <div className={styles.headerInfo}>
                     <div className={styles.headerName}>{room.name}</div>
                     <div className={styles.headerStatus}>
-                        {memberCount} участн.
+                        {typingStatus ?? `${memberCount} участн.`}
                     </div>
                 </div>
             </header>
@@ -218,7 +325,7 @@ const ChatView = ({ roomId }: Props) => {
                     type="text"
                     placeholder="Написать сообщение…"
                     value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={(e) => handleTextChange(e.target.value)}
                     autoFocus
                 />
                 <button

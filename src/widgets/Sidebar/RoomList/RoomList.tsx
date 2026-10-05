@@ -1,5 +1,5 @@
 import styles from './RoomList.module.css';
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Room, ClientEvent, RoomEvent, SyncState } from 'matrix-js-sdk';
 import { getClient } from '../../../shared/lib/matrix/client';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -16,30 +16,29 @@ const RoomList = () => {
         ? decodeURIComponent(pathname.slice('/chats/'.length))
         : null;
 
+    const refresh = useCallback(() => {
+        const client = getClient();
+        const rooms = client
+            .getRooms()
+            .filter((room) => room.getMyMembership() === 'join')
+            // самые свежие сверху
+            .sort((a, b) => b.getLastActiveTimestamp() - a.getLastActiveTimestamp());
+
+        // пропускаем рендер, если список фактически не изменился:
+        // sync-циклы сами по себе ничего не меняют
+        setMyRooms((prev) => {
+            if (
+                prev.length === rooms.length &&
+                prev.every((room, i) => room === rooms[i])
+            ) {
+                return prev;
+            }
+            return rooms;
+        });
+    }, []);
+
     useEffect(() => {
         const client = getClient();
-
-        const refresh = () => {
-            const rooms = client
-                .getRooms()
-                .filter((room) => room.getMyMembership() === 'join')
-                // самые свежие сверху
-                .sort((a, b) => b.getLastActiveTimestamp() - a.getLastActiveTimestamp());
-
-            // пропускаем рендер, если список фактически не изменился:
-            // sync-циклы сами по себе ничего не меняют
-            setMyRooms((prev) => {
-                if (
-                    prev.length === rooms.length &&
-                    prev.every((room, i) => room === rooms[i])
-                ) {
-                    return prev;
-                }
-                return rooms;
-            });
-        };
-
-        refresh();
 
         // после первого sync стор наполнен — показываем комнаты
         const handleSync = (state: SyncState) => {
@@ -62,7 +61,38 @@ const RoomList = () => {
             client.off(RoomEvent.MyMembership, handleRoom);
             client.off(RoomEvent.Timeline, handleRoom);
         };
-    }, []);
+    }, [refresh]);
+
+    // события непрочитанных и прочтений живут на уровне комнаты —
+    // подписываемся на каждую комнату из списка
+    const roomHandlersRef = useRef(new Map<Room, () => void>());
+
+    useEffect(() => {
+        const handlers = roomHandlersRef.current;
+
+        // снимаем все прежние подписки
+        for (const [room, handler] of handlers) {
+            room.off(RoomEvent.UnreadNotifications, handler);
+            room.off(RoomEvent.Receipt, handler);
+        }
+        handlers.clear();
+
+        // вешаем на актуальный набор комнат
+        for (const room of myRooms) {
+            const handler = () => refresh();
+            handlers.set(room, handler);
+            room.on(RoomEvent.UnreadNotifications, handler);
+            room.on(RoomEvent.Receipt, handler);
+        }
+
+        return () => {
+            for (const [room, handler] of handlers) {
+                room.off(RoomEvent.UnreadNotifications, handler);
+                room.off(RoomEvent.Receipt, handler);
+            }
+            handlers.clear();
+        };
+    }, [myRooms, refresh]);
 
     const handleRoomClick = (roomId: string) => {
         navigate(`/chats/${encodeURIComponent(roomId)}`);

@@ -28,6 +28,7 @@
 }
 
 .info {
+    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -39,6 +40,26 @@
     line-height: 20px;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.nameUnread {
+    font-weight: 700;
+}
+
+.badge {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 11px;
+    background: var(--c-brand);
+    color: var(--c-bg);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 .lastMessage {
