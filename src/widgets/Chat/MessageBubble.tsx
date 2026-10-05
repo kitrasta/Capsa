@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify';
+import { useMemo } from 'react';
 import type { MatrixEvent, Room } from 'matrix-js-sdk';
 import { EventStatus } from 'matrix-js-sdk';
 import styles from './MessageBubble.module.css';
@@ -48,7 +49,9 @@ const sanitizeHtml = (html: string): string =>
             'a', 'br', 'p', 'span', 'ul', 'ol', 'li', 'blockquote',
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr',
         ],
-        ALLOWED_ATTR: ['href', 'title', 'class', 'rel'],
+        // class не разрешаем: чужой HTML мог бы притянуть наши же
+        // CSS-классы (styles.own и т.п.) и перекрасить пузырь
+        ALLOWED_ATTR: ['href', 'title', 'rel'],
         // ссылки — только http(s) и matrix-схемы
         ALLOWED_URI_REGEXP: /^(?:https?:\/\/|mailto:|matrix:)/i,
     });
@@ -56,6 +59,12 @@ const sanitizeHtml = (html: string): string =>
 const MessageBubble = ({ event, room, isOwn }: Props) => {
     const body = event.getContent<{ body?: string }>().body ?? '';
     const formattedBody = getFormattedBody(event);
+    // санитайзинг — дорогой (парсинг DOM): гоняем только когда
+    // меняется сам HTML, а не на каждый ре-рендер ленты
+    const sanitizedHtml = useMemo(
+        () => (formattedBody ? sanitizeHtml(formattedBody) : null),
+        [formattedBody],
+    );
     const senderId = event.getSender() ?? '';
     const senderName = room.currentState.getMember(senderId)?.name ?? senderId;
     const ts = event.getTs();
@@ -67,10 +76,10 @@ const MessageBubble = ({ event, room, isOwn }: Props) => {
                 <div className={styles.senderName}>{senderName}</div>
             )}
             <div className={styles.bubble}>
-                {formattedBody ? (
+                {sanitizedHtml ? (
                     <div
                         className={styles.textHtml}
-                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(formattedBody) }}
+                        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                     />
                 ) : (
                     <div className={styles.text}>{body}</div>

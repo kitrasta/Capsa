@@ -12,6 +12,10 @@ interface Props {
 
 const SCROLLBACK_PAGE = 40;
 const SCROLL_LOAD_THRESHOLD = 100; // px от верха, когда тянем историю
+// отправка статуса печати: не чаще раза в 10 c,
+// сервер держит его 20 c, чтобы пережить сетевые лаги
+const TYPING_SEND_INTERVAL = 10_000;
+const TYPING_TIMEOUT = 20_000;
 
 const ChatView = ({ roomId }: Props) => {
     const navigate = useNavigate();
@@ -225,9 +229,6 @@ const ChatView = ({ roomId }: Props) => {
             </div>
         );
     }
-
-    const TYPING_SEND_INTERVAL = 10_000;
-    const TYPING_TIMEOUT = 20_000;
 
     const handleTextChange = (value: string) => {
         setText(value);

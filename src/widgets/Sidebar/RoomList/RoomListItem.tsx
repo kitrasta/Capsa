@@ -38,8 +38,31 @@ const getLastMessagePreview = (room: Room): LastMessagePreview | null => {
     return null;
 };
 
-const getUnreadCount = (room: Room): number =>
-    room.getRoomUnreadNotificationCount(NotificationCountType.Total) ?? 0;
+const getUnreadCount = (room: Room): number => {
+    const myUserId = getClient().getUserId();
+    if (!myUserId) return 0;
+
+    // локальный честный подсчёт: всё, что в live-ленте после
+    // нашего read receipt'а, кроме своих сообщений
+    const events = room.getLiveTimeline().getEvents();
+    const receiptEventId = room.getEventReadUpTo(myUserId, true);
+    const receiptIndex = receiptEventId
+        ? events.findIndex((e) => e.getId() === receiptEventId)
+        : -1;
+
+    // receipt вне live-ленты (давно не читал) или его нет —
+    // локально не сосчитать, доверяем серверному счётчику
+    if (receiptIndex === -1) {
+        return room.getRoomUnreadNotificationCount(NotificationCountType.Total) ?? 0;
+    }
+
+    return events
+        .slice(receiptIndex + 1)
+        .filter(
+            (e) => e.getType() === 'm.room.message' && e.getSender() !== myUserId,
+        )
+        .length;
+};
 
 const RoomListItem = ({ room, active = false, onClick }: Props) => {
     const lastMessage = getLastMessagePreview(room);
