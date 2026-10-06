@@ -32,3 +32,17 @@
     color: var(--c-text-2);
 }
 
+.section {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
+}
+
+.sectionTitle {
+    padding: 4px 8px;
+    color: var(--c-text-3);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+

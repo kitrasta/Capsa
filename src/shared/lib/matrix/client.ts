@@ -2,6 +2,8 @@ import { createClient, MemoryStore, IndexedDBStore} from 'matrix-js-sdk';
 import type {LoginResponse, IPublicRoomsChunkRoom, Room, MatrixClient} from "matrix-js-sdk";
 import type { MatrixSession } from './session';
 
+import { Preset } from 'matrix-js-sdk';
+
 export const MATRIX_HOMESERVER_URL = 'https://matrix.org';
 
 let client: MatrixClient | null = null
@@ -90,9 +92,43 @@ export const searchPublicRooms = async (
     return response.chunk;
 }
 
+export interface UserSearchResult {
+    userId: string;
+    displayName?: string;
+    avatarUrl?: string;
+}
+
+// поиск по директории людей homeserver'а
+// (матчатся userId, display name и домен)
+export const searchUsers = async (
+    query: string
+): Promise<UserSearchResult[]> => {
+    const client = getClient();
+    const response = await client.searchUserDirectory({
+        term: query,
+        limit: 10,
+    });
+    return response.results.map((result) => ({
+        userId: result.user_id,
+        displayName: result.display_name ?? undefined,
+        avatarUrl: result.avatar_url ?? undefined,
+    }));
+}
+
 export const joinRoom = async (roomId: string): Promise<Room> => {
     const client = getClient();
     return client.joinRoom(roomId)
+}
+
+// личный чат: приватная комната с приглашением одного юзера
+export const createDirectChat = async (userId: string): Promise<string> => {
+    const client = getClient();
+    const { room_id } = await client.createRoom({
+        invite: [userId],
+        is_direct: true,
+        preset: Preset.TrustedPrivateChat,
+    });
+    return room_id;
 }
 
 

@@ -1,0 +1,45 @@
+.result {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    color: var(--c-text-1);
+    text-align: left;
+    cursor: pointer;
+}
+
+.result:hover {
+    background: var(--c-bg-soft);
+}
+
+.info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.name {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.userId {
+    font-size: 12px;
+    color: var(--c-text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hint {
+    flex-shrink: 0;
+    color: var(--c-text-2);
+    font-size: 12px;
+}

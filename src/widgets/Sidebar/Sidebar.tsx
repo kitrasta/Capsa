@@ -4,16 +4,24 @@ import SearchBar from './Search/SearchBar';
 import RoomList from './RoomList/RoomList';
 import CreateChatModal from '../CreateChat/CreateChatModal';
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { searchPublicRooms, joinRoom } from '../../shared/lib/matrix/client';
+import {
+    searchPublicRooms,
+    searchUsers,
+    joinRoom,
+    createDirectChat,
+} from '../../shared/lib/matrix/client';
 import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
+import type { UserSearchResult } from '../../shared/lib/matrix/client';
 
 const Sidebar = () => {
     const { pathname } = useLocation();
+    const navigate = useNavigate();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<IPublicRoomsChunkRoom[]>([]);
+    const [users, setUsers] = useState<UserSearchResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [isCreateChatOpen, setIsCreateChatOpen] = useState(false);
 
@@ -22,14 +30,26 @@ const Sidebar = () => {
 
         const timer = setTimeout(async () => {
             setLoading(true);
-            try {
-                const rooms = await searchPublicRooms(searchTerm);
-                setResults(rooms);
-            } catch (error) {
-                console.error('Error searching public rooms:', error);
-            } finally {
-                setLoading(false);
+            // комнаты и людей ищем параллельно:
+            // одна из веток может упасть — вторая покажется всё равно
+            const [roomsResult, usersResult] = await Promise.allSettled([
+                searchPublicRooms(searchTerm),
+                searchUsers(searchTerm),
+            ]);
+
+            if (roomsResult.status === 'fulfilled') {
+                setResults(roomsResult.value);
+            } else {
+                console.error('Error searching public rooms:', roomsResult.reason);
+                setResults([]);
             }
+            if (usersResult.status === 'fulfilled') {
+                setUsers(usersResult.value);
+            } else {
+                console.error('Error searching users:', usersResult.reason);
+                setUsers([]);
+            }
+            setLoading(false);
         }, 500);
 
         return () => clearTimeout(timer);
@@ -39,16 +59,32 @@ const Sidebar = () => {
         setSearchTerm(value);
         if (value === '') {
             setResults([]);
+            setUsers([]);
         }
+    };
+
+    const resetSearch = () => {
+        setSearchTerm('');
+        setResults([]);
+        setUsers([]);
     };
 
     const handleRoomClick = async (roomId: string) => {
         try {
             await joinRoom(roomId);
-            setSearchTerm('');
-            setResults([]);
+            resetSearch();
         } catch (error) {
             console.error('Error joining room:', error);
+        }
+    };
+
+    const handleUserClick = async (userId: string) => {
+        try {
+            const roomId = await createDirectChat(userId);
+            resetSearch();
+            navigate(`/chats/${encodeURIComponent(roomId)}`);
+        } catch (error) {
+            console.error('Error creating direct chat:', error);
         }
     };
 
@@ -69,8 +105,10 @@ const Sidebar = () => {
                 searchTerm={searchTerm}
                 onSearchTermChange={handleSearchChange}
                 results={results}
+                users={users}
                 loading={loading}
                 onRoomClick={handleRoomClick}
+                onUserClick={handleUserClick}
             />
 
             {pathname.startsWith('/chats') && <RoomList />}
