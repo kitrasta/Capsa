@@ -1,0 +1,54 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 100;
+    padding: 16px;
+}
+
+.modal {
+    width: 100%;
+    max-width: 400px;
+    background: var(--c-bg-elv);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 8px;
+}
+
+.title {
+    color: var(--c-text-1);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.closeButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--c-text-2);
+    cursor: pointer;
+}
+
+.closeButton:hover {
+    background: var(--c-bg-soft);
+    color: var(--c-text-1);
+}
+
+.content {
+    padding: 8px 20px 20px;
+}

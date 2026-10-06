@@ -2,8 +2,10 @@ import styles from './Sidebar.module.css';
 import Navbar from './Navbar/Navbar';
 import SearchBar from './Search/SearchBar';
 import RoomList from './RoomList/RoomList';
+import CreateChatModal from '../CreateChat/CreateChatModal';
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { searchPublicRooms, joinRoom } from '../../shared/lib/matrix/client';
 import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
 
@@ -13,6 +15,7 @@ const Sidebar = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<IPublicRoomsChunkRoom[]>([]);
     const [loading, setLoading] = useState(false);
+    const [isCreateChatOpen, setIsCreateChatOpen] = useState(false);
 
     useEffect(() => {
         if (searchTerm === '') return;
@@ -51,7 +54,16 @@ const Sidebar = () => {
 
     return (
         <div className={styles.wrapper}>
-            <h3>Capsa</h3>
+            <div className={styles.titleRow}>
+                <h3>Capsa</h3>
+                <button
+                    className={styles.createButton}
+                    onClick={() => setIsCreateChatOpen(true)}
+                    aria-label="Новый чат"
+                >
+                    <Plus size={18} />
+                </button>
+            </div>
 
             <SearchBar
                 searchTerm={searchTerm}
@@ -64,6 +76,11 @@ const Sidebar = () => {
             {pathname.startsWith('/chats') && <RoomList />}
 
             <Navbar />
+
+            <CreateChatModal
+                isOpen={isCreateChatOpen}
+                onClose={() => setIsCreateChatOpen(false)}
+            />
         </div>
     );
 };

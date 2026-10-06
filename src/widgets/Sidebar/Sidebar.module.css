@@ -22,6 +22,36 @@
     line-height: 24px;
 }
 
+.titleRow {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 12px 10px 16px;
+}
+
+.titleRow h3 {
+    padding: 0;
+}
+
+.createButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--c-text-2);
+    cursor: pointer;
+}
+
+.createButton:hover {
+    background: var(--c-bg-soft);
+    color: var(--c-brand);
+}
+
 .rooms {
     min-height: 0;
     overflow-y: auto;
