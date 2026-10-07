@@ -10,7 +10,8 @@
     align-items: center;
     gap: 12px;
     padding: 8px 16px;
-    border-bottom: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--c-border);
     background: var(--c-bg-elv);
     flex-shrink: 0;
 }
