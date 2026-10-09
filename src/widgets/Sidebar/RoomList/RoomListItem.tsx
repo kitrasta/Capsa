@@ -25,6 +25,11 @@ const getLastMessagePreview = (room: Room): LastMessagePreview | null => {
     const senderId = event.getSender() ?? '';
     const senderName = room.currentState.getMember(senderId)?.name ?? senderId;
 
+    // зашифрованное событие до расшифровки (расшифруется асинхронно)
+    if (event.getType() === 'm.room.encrypted') {
+        return { senderId, senderName, text: '🔒 Зашифрованное сообщение' };
+    }
+
     if (event.getType() === 'm.room.message') {
         const body = event.getContent<{ body?: string }>().body;
         if (!body) return null;

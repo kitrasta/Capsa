@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClientEvent, RoomEvent, RoomMemberEvent } from 'matrix-js-sdk';
+import { ClientEvent, RoomEvent, RoomMemberEvent, MatrixEventEvent } from 'matrix-js-sdk';
 import { getClient } from '../../shared/lib/matrix/client';
 import Avatar from '../Sidebar/RoomList/Avatar';
 import MessageBubble from './MessageBubble';
@@ -66,6 +66,24 @@ const ChatView = ({ roomId }: Props) => {
             room.off(RoomEvent.LocalEchoUpdated, handleTimeline);
         };
     }, [room]);
+
+    // зашифрованные события расшифровываются асинхронно:
+    // событие приходит как m.room.encrypted, а после расшифровки
+    // меняет тип на m.room.message и эмитит Event.decrypted
+    useEffect(() => {
+        if (!room) return;
+
+        const handleDecrypted = (event: { getRoomId?: () => string | undefined }) => {
+            if (event.getRoomId?.() === roomId) {
+                setTimelineVersion((v) => v + 1);
+            }
+        };
+
+        client.on(MatrixEventEvent.Decrypted, handleDecrypted);
+        return () => {
+            client.off(MatrixEventEvent.Decrypted, handleDecrypted);
+        };
+    }, [client, room, roomId]);
 
     // typing-индикатор: SDK разбирает m.typing ephemeral-события
     // и помечает участников, клиент ре-эмитит RoomMemberEvent.Typing
@@ -331,7 +349,12 @@ const ChatView = ({ roomId }: Props) => {
                 </button>
                 <Avatar room={room} size={40} />
                 <div className={styles.headerInfo}>
-                    <div className={styles.headerName}>{room.name}</div>
+                    <div className={styles.headerName}>
+                        {room.name}
+                        {room.hasEncryptionStateEvent() && (
+                            <span className={styles.encryptionIcon} title="Сквозное шифрование">🔒</span>
+                        )}
+                    </div>
                     <div className={styles.headerStatus}>
                         {typingStatus ?? `${memberCount} участн.`}
                     </div>

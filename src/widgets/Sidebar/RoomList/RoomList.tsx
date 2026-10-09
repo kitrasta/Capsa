@@ -1,6 +1,6 @@
 import styles from './RoomList.module.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Room, ClientEvent, RoomEvent, SyncState } from 'matrix-js-sdk';
+import { Room, ClientEvent, RoomEvent, SyncState, MatrixEventEvent } from 'matrix-js-sdk';
 import { getClient } from '../../../shared/lib/matrix/client';
 import { useLocation, useNavigate } from 'react-router-dom';
 import RoomListItem from './RoomListItem';
@@ -54,12 +54,16 @@ const RoomList = () => {
         client.on(ClientEvent.Room, handleRoom);
         client.on(RoomEvent.MyMembership, handleRoom);
         client.on(RoomEvent.Timeline, handleRoom);
+        // зашифрованные события расшифровываются асинхронно:
+        // превью обновится, когда расшифруется
+        client.on(MatrixEventEvent.Decrypted, handleRoom);
 
         return () => {
             client.off(ClientEvent.Sync, handleSync);
             client.off(ClientEvent.Room, handleRoom);
             client.off(RoomEvent.MyMembership, handleRoom);
             client.off(RoomEvent.Timeline, handleRoom);
+            client.off(MatrixEventEvent.Decrypted, handleRoom);
         };
     }, [refresh]);
 

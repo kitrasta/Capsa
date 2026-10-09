@@ -50,6 +50,13 @@
     text-overflow: ellipsis;
 }
 
+.encryptionIcon {
+    margin-left: 6px;
+    font-size: 14px;
+    vertical-align: middle;
+    opacity: 0.8;
+}
+
 .headerStatus {
     color: var(--c-text-2);
     font-size: 13px;
