@@ -1,15 +1,70 @@
 import styles from './RoomList.module.css';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Room, ClientEvent, RoomEvent, SyncState, MatrixEventEvent } from 'matrix-js-sdk';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Room, ClientEvent, RoomEvent, RoomStateEvent, SyncState, MatrixEventEvent } from 'matrix-js-sdk';
 import { getClient } from '../../../shared/lib/matrix/client';
 import { useLocation, useNavigate } from 'react-router-dom';
 import RoomListItem from './RoomListItem';
+
+const COLLAPSED_SPACES_KEY = 'capsa.collapsed-spaces';
+
+const readCollapsed = (): Set<string> => {
+    try {
+        const raw = localStorage.getItem(COLLAPSED_SPACES_KEY);
+        return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch {
+        return new Set();
+    }
+};
+
+const writeCollapsed = (ids: Set<string>) => {
+    localStorage.setItem(COLLAPSED_SPACES_KEY, JSON.stringify([...ids]));
+};
+
+interface SpaceGroup {
+    space: Room;
+    children: Room[];
+}
+
+// распределяем комнаты по секциям-пространствам:
+// ребёнок, заявленный в нескольких пространствах, уходит первому
+const groupBySpaces = (rooms: Room[]): { flat: Room[]; groups: SpaceGroup[] } => {
+    const client = getClient();
+    const spaces = rooms.filter((room) => room.isSpaceRoom());
+    const plain = rooms.filter((room) => !room.isSpaceRoom());
+
+    const claimed = new Set<string>();
+    const groups: SpaceGroup[] = spaces.map((space) => {
+        const children = space.currentState
+            .getStateEvents('m.space.child')
+            .map((event) => ({
+                roomId: event.getStateKey() ?? '',
+                order: event.getContent<{ order?: string }>().order ?? '',
+            }))
+            .filter(({ roomId }) => {
+                // ребёнок должен быть в общем списке и ещё не занят другим пространством
+                if (claimed.has(roomId)) return false;
+                const room = client.getRoom(roomId);
+                return !!room && !room.isSpaceRoom() && room.getMyMembership() === 'join';
+            })
+            .sort((a, b) => a.order.localeCompare(b.order))
+            .map(({ roomId }) => {
+                claimed.add(roomId);
+                return client.getRoom(roomId) as Room;
+            });
+
+        return { space, children };
+    });
+
+    const flat = plain.filter((room) => !claimed.has(room.roomId));
+    return { flat, groups };
+};
 
 const RoomList = () => {
     const navigate = useNavigate();
     const { pathname } = useLocation();
 
     const [myRooms, setMyRooms] = useState<Room[]>([]);
+    const [collapsedSpaces, setCollapsedSpaces] = useState<Set<string>>(readCollapsed);
 
     // /chats/:roomId, roomId URL-encoded (содержит ! и :)
     const activeRoomId = pathname.startsWith('/chats/')
@@ -21,7 +76,6 @@ const RoomList = () => {
         const rooms = client
             .getRooms()
             .filter((room) => room.getMyMembership() === 'join')
-            // самые свежие сверху
             .sort((a, b) => b.getLastActiveTimestamp() - a.getLastActiveTimestamp());
 
         // пропускаем рендер, если список фактически не изменился:
@@ -57,6 +111,8 @@ const RoomList = () => {
         // зашифрованные события расшифровываются асинхронно:
         // превью обновится, когда расшифруется
         client.on(MatrixEventEvent.Decrypted, handleRoom);
+        // в пространстве добавили/убрали комнату (m.space.child — это state)
+        client.on(RoomStateEvent.Events, handleRoom);
 
         return () => {
             client.off(ClientEvent.Sync, handleSync);
@@ -64,6 +120,7 @@ const RoomList = () => {
             client.off(RoomEvent.MyMembership, handleRoom);
             client.off(RoomEvent.Timeline, handleRoom);
             client.off(MatrixEventEvent.Decrypted, handleRoom);
+            client.off(RoomStateEvent.Events, handleRoom);
         };
     }, [refresh]);
 
@@ -98,19 +155,58 @@ const RoomList = () => {
         };
     }, [myRooms, refresh]);
 
+    // распределяем: плоский список + секции-пространства
+    const { flat, groups } = useMemo(() => groupBySpaces(myRooms), [myRooms]);
+
+    const handleToggleSpace = (spaceId: string) => {
+        setCollapsedSpaces((prev) => {
+            const next = new Set(prev);
+            if (next.has(spaceId)) {
+                next.delete(spaceId);
+            } else {
+                next.add(spaceId);
+            }
+            writeCollapsed(next);
+            return next;
+        });
+    };
+
     const handleRoomClick = (roomId: string) => {
         navigate(`/chats/${encodeURIComponent(roomId)}`);
     };
 
     return (
         <div className={styles.rooms}>
-            {myRooms.map((room) => (
+            {flat.map((room) => (
                 <RoomListItem
                     key={room.roomId}
                     room={room}
                     active={room.roomId === activeRoomId}
                     onClick={handleRoomClick}
                 />
+            ))}
+
+            {groups.map(({ space, children }) => (
+                <div key={space.roomId} className={styles.spaceGroup}>
+                    <button
+                        className={styles.spaceHeader}
+                        onClick={() => handleToggleSpace(space.roomId)}
+                        aria-expanded={!collapsedSpaces.has(space.roomId)}
+                    >
+                        <span className={styles.spaceTitle}>{space.name}</span>
+                        <span className={styles.spaceCount}>{children.length}</span>
+                    </button>
+
+                    {!collapsedSpaces.has(space.roomId) &&
+                        children.map((room) => (
+                            <RoomListItem
+                                key={room.roomId}
+                                room={room}
+                                active={room.roomId === activeRoomId}
+                                onClick={handleRoomClick}
+                            />
+                        ))}
+                </div>
             ))}
         </div>
     );
