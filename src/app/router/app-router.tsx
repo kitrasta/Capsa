@@ -5,7 +5,8 @@ import MainLayout from '../ui/MainLayout.tsx'
 import ChatsPage from '../../pages/ChatsPage.tsx'
 import ContactsPage from '../../pages/ContactsPage.tsx'
 import CallsPage from '../../pages/CallsPage.tsx'
-import SettingsPage from '../../pages/SettingsPage.tsx'
+import GeneralSettingsPage from '../../pages/GeneralSettingsPage.tsx'
+import SettingsStubPage from '../../pages/SettingsStubPage.tsx'
 import  AuthGuard  from './AuthGuard.tsx'
 
 const AppRouter = () => {
@@ -21,7 +22,11 @@ const AppRouter = () => {
                     <Route path="/chats/:roomId" element={<ChatsPage />} />
                     <Route path="/contacts" element={<ContactsPage />} />
                     <Route path="/calls" element={<CallsPage />} />
-                    <Route path='/settings' element={<SettingsPage />} />
+                    <Route path='/settings' element={<Navigate to="/settings/general" replace />} />
+                    <Route path='/settings/general' element={<GeneralSettingsPage />} />
+                    <Route path='/settings/devices' element={<SettingsStubPage title="Устройства" />} />
+                    <Route path='/settings/appearance' element={<SettingsStubPage title="Оформление" />} />
+                    <Route path='/settings/notifications' element={<SettingsStubPage title="Уведомления" />} />
                 </Route>
             </Route>
 
