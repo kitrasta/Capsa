@@ -245,15 +245,18 @@ export const setAvatar = async (file: File): Promise<void> => {
 
 // выход: останавливаем клиент, чистим localStorage и IndexedDB
 export const logout = async (): Promise<void> => {
-    const client = getClient();
+    const matrixClient = getClient();
     try {
-        await client.logout();
+        await matrixClient.logout();
     } finally {
         // даже при ошибке сети юзер должен выйти из сломанной сессии
-        client.stopClient();
+        matrixClient.stopClient();
         localStorage.clear();
         // криптостойки и room-стор живут в IndexedDB — вытираем начисто
         indexedDB.deleteDatabase('capsa-matrix-store');
+        indexedDB.deleteDatabase('capsa-crypto');
+        // сброс синглтона: повторный вход создаст свежий клиент
+        client = null;
     }
 };
 
