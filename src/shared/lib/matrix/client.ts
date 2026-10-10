@@ -3,7 +3,7 @@ import { AllDevicesIsolationMode } from 'matrix-js-sdk/lib/crypto-api';
 import type {LoginResponse, IPublicRoomsChunkRoom, Room, MatrixClient} from "matrix-js-sdk";
 import type { MatrixSession } from './session';
 
-import { Preset, RoomType } from 'matrix-js-sdk';
+import { Preset, RoomType, Visibility } from 'matrix-js-sdk';
 
 export const MATRIX_HOMESERVER_URL = 'https://matrix.org';
 
@@ -180,6 +180,35 @@ export const createSpace = async (name: string): Promise<string> => {
     const { room_id } = await client.createRoom({
         name,
         creation_content: { type: RoomType.Space },
+    });
+    return room_id;
+};
+
+// группа: приватная комната со списком приглашённых (можно пустым)
+export const createGroup = async (
+    name: string,
+    invite: string[],
+): Promise<string> => {
+    const client = getClient();
+    const { room_id } = await client.createRoom({
+        name,
+        invite,
+        preset: Preset.PrivateChat,
+    });
+    return room_id;
+};
+
+// канал: публичная комната, в неё вступают сами
+export const createChannel = async (
+    name: string,
+    topic?: string,
+): Promise<string> => {
+    const client = getClient();
+    const { room_id } = await client.createRoom({
+        name,
+        topic,
+        visibility: Visibility.Public,
+        preset: Preset.PublicChat,
     });
     return room_id;
 };

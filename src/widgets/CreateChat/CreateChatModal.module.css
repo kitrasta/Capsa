@@ -101,6 +101,82 @@
     animation: spin 0.8s linear infinite;
 }
 
+.textarea {
+    min-height: 72px;
+    resize: vertical;
+}
+
+/* поиск участников группы */
+.searchList {
+    display: flex;
+    flex-direction: column;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+}
+
+.searchRow {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: var(--c-text-1);
+    text-align: left;
+    cursor: pointer;
+}
+
+.searchRow:hover {
+    background: var(--c-bg-soft);
+}
+
+.searchName {
+    font-size: 14px;
+}
+
+.searchId {
+    font-size: 12px;
+    color: var(--c-text-2);
+}
+
+/* выбранные участники — чипы */
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    padding: 4px 8px;
+    background: var(--c-bg-soft);
+    border: 1px solid var(--c-border);
+    border-radius: 12px;
+    color: var(--c-text-1);
+    font-size: 13px;
+}
+
+.chipRemove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--c-text-2);
+    cursor: pointer;
+}
+
+.chipRemove:hover {
+    color: var(--c-danger, #e5484d);
+}
+
 @keyframes spin {
     to {
         transform: rotate(360deg);
