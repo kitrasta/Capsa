@@ -97,3 +97,71 @@
 .logoutButton:hover {
     border-color: var(--c-text-2);
 }
+
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+.saveButton {
+    padding: 8px 20px;
+    background: var(--c-brand);
+    border: 1px solid var(--c-brand);
+    border-radius: var(--radius-sm);
+    color: var(--c-bg);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.saveButton:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.input {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--c-bg-soft);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    color: var(--c-text-1);
+    font-size: 15px;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--c-brand);
+}
+
+.error {
+    margin: 0;
+    color: var(--c-danger, #e5484d);
+    font-size: 13px;
+}
+
+/* аватар в режиме редактирования: кликабельный + спиннер поверх */
+.avatarButton {
+    position: relative;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.avatarButton:disabled {
+    cursor: default;
+}
+
+.avatarOverlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+    color: var(--c-bg);
+}
