@@ -26,6 +26,16 @@
     background: var(--c-bg-soft);
 }
 
+.spaceChevron {
+    flex-shrink: 0;
+    color: var(--c-text-3);
+    transition: transform 0.15s ease;
+}
+
+.spaceChevronCollapsed {
+    transform: rotate(-90deg);
+}
+
 .spaceTitle {
     flex: 1;
     color: var(--c-text-2);

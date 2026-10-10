@@ -1,5 +1,6 @@
 import styles from './RoomList.module.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Room, ClientEvent, RoomEvent, RoomStateEvent, SyncState, MatrixEventEvent } from 'matrix-js-sdk';
 import { getClient } from '../../../shared/lib/matrix/client';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -186,28 +187,39 @@ const RoomList = () => {
                 />
             ))}
 
-            {groups.map(({ space, children }) => (
-                <div key={space.roomId} className={styles.spaceGroup}>
-                    <button
-                        className={styles.spaceHeader}
-                        onClick={() => handleToggleSpace(space.roomId)}
-                        aria-expanded={!collapsedSpaces.has(space.roomId)}
-                    >
-                        <span className={styles.spaceTitle}>{space.name}</span>
-                        <span className={styles.spaceCount}>{children.length}</span>
-                    </button>
+            {groups.map(({ space, children }) => {
+                if (children.length === 0) return null;
 
-                    {!collapsedSpaces.has(space.roomId) &&
-                        children.map((room) => (
-                            <RoomListItem
-                                key={room.roomId}
-                                room={room}
-                                active={room.roomId === activeRoomId}
-                                onClick={handleRoomClick}
+                const collapsed = collapsedSpaces.has(space.roomId);
+                return (
+                    <div key={space.roomId} className={styles.spaceGroup}>
+                        <button
+                            className={styles.spaceHeader}
+                            onClick={() => handleToggleSpace(space.roomId)}
+                            aria-expanded={!collapsed}
+                        >
+                            <ChevronDown
+                                size={14}
+                                className={`${styles.spaceChevron} ${
+                                    collapsed ? styles.spaceChevronCollapsed : ''
+                                }`}
                             />
-                        ))}
-                </div>
-            ))}
+                            <span className={styles.spaceTitle}>{space.name}</span>
+                            <span className={styles.spaceCount}>{children.length}</span>
+                        </button>
+
+                        {!collapsed &&
+                            children.map((room) => (
+                                <RoomListItem
+                                    key={room.roomId}
+                                    room={room}
+                                    active={room.roomId === activeRoomId}
+                                    onClick={handleRoomClick}
+                                />
+                            ))}
+                    </div>
+                );
+            })}
         </div>
     );
 };
