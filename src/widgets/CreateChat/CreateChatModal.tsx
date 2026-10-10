@@ -115,7 +115,7 @@ const CreateChatModal = ({ isOpen, onClose }: CreateChatModalProps) => {
     };
 
     // комнаты для выбора в пространство: только вступлённые и не пространства
-    // фиксируем на момент открытия формы — живой sync во время выбора не нужен
+    // фиксируется при каждом открытии модалки — живой sync во время выбора не нужен
     const myRooms = useMemo(
         () =>
             getClient()
@@ -123,7 +123,7 @@ const CreateChatModal = ({ isOpen, onClose }: CreateChatModalProps) => {
                 .filter(
                     (room) => room.getMyMembership() === 'join' && !room.isSpaceRoom(),
                 ),
-        [],
+        [isOpen],
     );
 
     const handleToggleRoom = (room: Room) => {
