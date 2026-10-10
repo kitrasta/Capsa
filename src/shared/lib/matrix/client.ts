@@ -230,6 +230,30 @@ export const createChannel = async (
     return room_id;
 };
 
+// смена отображаемого имени профиля
+export const setDisplayName = async (name: string): Promise<void> => {
+    const client = getClient();
+    await client.setDisplayName(name);
+};
 
+// загрузка аватара (mxc-Url вернёт сервер)
+export const setAvatar = async (file: File): Promise<void> => {
+    const client = getClient();
+    const { content_uri } = await client.uploadContent(file, { type: file.type });
+    await client.setAvatarUrl(content_uri);
+};
 
+// выход: останавливаем клиент, чистим localStorage и IndexedDB
+export const logout = async (): Promise<void> => {
+    const client = getClient();
+    try {
+        await client.logout();
+    } finally {
+        // даже при ошибке сети юзер должен выйти из сломанной сессии
+        client.stopClient();
+        localStorage.clear();
+        // криптостойки и room-стор живут в IndexedDB — вытираем начисто
+        indexedDB.deleteDatabase('capsa-matrix-store');
+    }
+};
 
