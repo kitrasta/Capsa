@@ -132,6 +132,23 @@
     background: var(--c-bg-soft);
 }
 
+/* строки комнат в пространстве: имя + галочка выбора */
+.roomRow {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.searchRowSelected {
+    background: var(--c-bg-soft);
+}
+
+.checkIcon {
+    flex-shrink: 0;
+    color: var(--c-brand);
+}
+
 .searchName {
     font-size: 14px;
 }
