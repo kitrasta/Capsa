@@ -3,7 +3,7 @@ import { AllDevicesIsolationMode } from 'matrix-js-sdk/lib/crypto-api';
 import type {LoginResponse, IPublicRoomsChunkRoom, Room, MatrixClient} from "matrix-js-sdk";
 import type { MatrixSession } from './session';
 
-import { Preset, RoomType, Visibility } from 'matrix-js-sdk';
+import { Preset, RoomType, Visibility, EventType } from 'matrix-js-sdk';
 
 export const MATRIX_HOMESERVER_URL = 'https://matrix.org';
 
@@ -182,6 +182,23 @@ export const createSpace = async (name: string): Promise<string> => {
         creation_content: { type: RoomType.Space },
     });
     return room_id;
+};
+
+// добавить комнату в пространство: m.space.child — state-событие
+// внутри самой space-комнаты, state_key = roomId ребёнка
+export const addRoomToSpace = async (
+    spaceId: string,
+    roomId: string,
+): Promise<void> => {
+    const client = getClient();
+    // сигнатура SDK v42: (roomId, eventType, content, stateKey?)
+    // типовой map StateEvents не покрывает m.space.child — кастим имя события
+    await client.sendStateEvent(
+        spaceId,
+        EventType.SpaceChild as Parameters<MatrixClient['sendStateEvent']>[1],
+        {},
+        roomId,
+    );
 };
 
 // группа: приватная комната со списком приглашённых (можно пустым)
