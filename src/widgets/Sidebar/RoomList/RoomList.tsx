@@ -2,9 +2,10 @@ import styles from './RoomList.module.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Room, ClientEvent, RoomEvent, RoomStateEvent, SyncState, MatrixEventEvent } from 'matrix-js-sdk';
-import { getClient } from '../../../shared/lib/matrix/client';
+import { getClient, getRoomSummary } from '../../../shared/lib/matrix/client';
 import { useLocation, useNavigate } from 'react-router-dom';
 import RoomListItem from './RoomListItem';
+import UnjoinedRoomItem from './UnjoinedRoomItem';
 
 const COLLAPSED_SPACES_KEY = 'capsa.collapsed-spaces';
 
@@ -21,13 +22,29 @@ const writeCollapsed = (ids: Set<string>) => {
     localStorage.setItem(COLLAPSED_SPACES_KEY, JSON.stringify([...ids]));
 };
 
+interface UnjoinedChild {
+    roomId: string;
+    name: string | null;
+    avatarUrl: string | null;
+    order: string;
+    via: string[];
+}
+
+// единый список детей пространства в порядке order:
+// типы элементов различаются — joined и не-joined
+export type SpaceChildEntry =
+    | { kind: 'joined'; room: Room; order: string }
+    | { kind: 'unjoined'; child: UnjoinedChild; order: string };
+
 interface SpaceGroup {
     space: Room;
-    children: Room[];
+    children: SpaceChildEntry[];
+    unjoinedChildren: UnjoinedChild[];
 }
 
 // распределяем комнаты по секциям-пространствам:
-// ребёнок, заявленный в нескольких пространствах, уходит первому
+// ребёнок, заявленный в нескольких пространствах, уходит первому.
+// не-joined дети НЕ грузят summary здесь — только собираются в список
 const groupBySpaces = (rooms: Room[]): { flat: Room[]; groups: SpaceGroup[] } => {
     const client = getClient();
     const spaces = rooms.filter((room) => room.isSpaceRoom());
@@ -35,25 +52,49 @@ const groupBySpaces = (rooms: Room[]): { flat: Room[]; groups: SpaceGroup[] } =>
 
     const claimed = new Set<string>();
     const groups: SpaceGroup[] = spaces.map((space) => {
-        const children = space.currentState
+        const children: SpaceChildEntry[] = space.currentState
             .getStateEvents('m.space.child')
             .map((event) => ({
                 roomId: event.getStateKey() ?? '',
                 order: event.getContent<{ order?: string }>().order ?? '',
+                via: event.getContent<{ via?: string[] }>().via ?? [],
             }))
             .filter(({ roomId }) => {
-                // ребёнок должен быть в общем списке и ещё не занят другим пространством
-                if (claimed.has(roomId)) return false;
-                const room = client.getRoom(roomId);
-                return !!room && !room.isSpaceRoom() && room.getMyMembership() === 'join';
+                // ребёнок ещё не занят другим пространством
+                return roomId !== '' && !claimed.has(roomId);
             })
-            .sort((a, b) => a.order.localeCompare(b.order))
-            .map(({ roomId }) => {
-                claimed.add(roomId);
-                return client.getRoom(roomId) as Room;
-            });
+            .map(({ roomId, order, via }) => {
+                const room = client.getRoom(roomId);
 
-        return { space, children };
+                // вложенные пространства не показываем — как и раньше
+                if (room && room.isSpaceRoom()) {
+                    return null;
+                }
+
+                claimed.add(roomId);
+
+                if (room && room.getMyMembership() === 'join') {
+                    return { kind: 'joined', room, order } as SpaceChildEntry;
+                }
+
+                // комнаты нет в сторе (или мы не вступили) — кандидат на summary
+                return {
+                    kind: 'unjoined',
+                    child: { roomId, name: null, avatarUrl: null, order, via },
+                    order,
+                } as SpaceChildEntry;
+            })
+            .filter((entry): entry is SpaceChildEntry => entry !== null)
+            // joined и unjoined дети сортируются ВМЕСТЕ по order
+            .sort((a, b) => a.order.localeCompare(b.order));
+
+        return {
+            space,
+            children,
+            unjoinedChildren: children
+                .filter((entry) => entry.kind === 'unjoined')
+                .map((entry) => (entry as { kind: 'unjoined'; child: UnjoinedChild }).child),
+        };
     });
 
     const flat = plain.filter((room) => !claimed.has(room.roomId));
@@ -159,6 +200,37 @@ const RoomList = () => {
     // распределяем: плоский список + секции-пространства
     const { flat, groups } = useMemo(() => groupBySpaces(myRooms), [myRooms]);
 
+    // summary не-joined детей: roomId → {name, avatarUrl}
+    const [summaries, setSummaries] = useState<
+        Record<string, { name: string | null; avatarUrl: string | null }>
+    >({});
+
+    const unjoinedChildren = useMemo(
+        () => groups.flatMap((group) => group.unjoinedChildren),
+        [groups],
+    );
+
+    // грузим summary для не-joined детей; каждый roomId — не больше одного запроса
+    const fetchedSummariesRef = useRef<Set<string>>(new Set());
+
+    useEffect(() => {
+        for (const child of unjoinedChildren) {
+            if (fetchedSummariesRef.current.has(child.roomId)) continue;
+            fetchedSummariesRef.current.add(child.roomId);
+
+            getRoomSummary(child.roomId, child.via)
+                .then(({ name, avatar_url }) => {
+                    setSummaries((prev) => ({
+                        ...prev,
+                        [child.roomId]: { name, avatarUrl: avatar_url },
+                    }));
+                })
+                .catch((error) => {
+                    console.error('Failed to load room summary:', error);
+                });
+        }
+    }, [unjoinedChildren]);
+
     const handleToggleSpace = (spaceId: string) => {
         setCollapsedSpaces((prev) => {
             const next = new Set(prev);
@@ -209,14 +281,28 @@ const RoomList = () => {
                         </button>
 
                         {!collapsed &&
-                            children.map((room) => (
-                                <RoomListItem
-                                    key={room.roomId}
-                                    room={room}
-                                    active={room.roomId === activeRoomId}
-                                    onClick={handleRoomClick}
-                                />
-                            ))}
+                            children.map((entry) => {
+                                if (entry.kind === 'joined') {
+                                    return (
+                                        <RoomListItem
+                                            key={entry.room.roomId}
+                                            room={entry.room}
+                                            active={entry.room.roomId === activeRoomId}
+                                            onClick={handleRoomClick}
+                                        />
+                                    );
+                                }
+
+                                const summary = summaries[entry.child.roomId];
+                                return (
+                                    <UnjoinedRoomItem
+                                        key={entry.child.roomId}
+                                        roomId={entry.child.roomId}
+                                        name={summary?.name ?? null}
+                                        avatarUrl={summary?.avatarUrl ?? null}
+                                    />
+                                );
+                            })}
                     </div>
                 );
             })}

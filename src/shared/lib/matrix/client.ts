@@ -191,14 +191,26 @@ export const addRoomToSpace = async (
     roomId: string,
 ): Promise<void> => {
     const client = getClient();
-    // сигнатура SDK v42: (roomId, eventType, content, stateKey?)
-    // типовой map StateEvents не покрывает m.space.child — кастим имя события
-    await client.sendStateEvent(
-        spaceId,
-        EventType.SpaceChild as Parameters<MatrixClient['sendStateEvent']>[1],
-        {},
-        roomId,
-    );
+    // via — серверы, через которые можно резолвить ребёнка (спека spaces)
+    const via = [new URL(MATRIX_HOMESERVER_URL).hostname];
+    await client.sendStateEvent(spaceId, EventType.SpaceChild, { via }, roomId);
+};
+
+export interface SpaceChildInfo {
+    roomId: string;
+    name: string | null;
+    avatarUrl: string | null;
+    joined: boolean;
+}
+
+// summary не-joined ребёнка пространства: имя/аватар с сервера
+export const getRoomSummary = async (
+    roomId: string,
+    via: string[],
+): Promise<{ name: string | null; avatar_url: string | null }> => {
+    const client = getClient();
+    const summary = await client.getRoomSummary(roomId, via);
+    return { name: summary.name ?? null, avatar_url: summary.avatar_url ?? null };
 };
 
 // группа: приватная комната со списком приглашённых (можно пустым)

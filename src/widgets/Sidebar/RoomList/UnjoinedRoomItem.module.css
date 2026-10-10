@@ -1,0 +1,59 @@
+.room {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    min-height: 52px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+
+    color: var(--c-text-1);
+    cursor: pointer;
+
+    white-space: nowrap;
+    overflow: hidden;
+
+    opacity: 0.7;
+}
+
+.room:hover {
+    background: var(--c-bg-soft);
+}
+
+.room:active {
+    background: var(--c-brand);
+    color: var(--c-bg);
+}
+
+.avatar {
+    flex-shrink: 0;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.avatarFallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--c-bg-soft);
+    color: var(--c-text-2);
+    font-size: 18px;
+}
+
+.name {
+    font-size: 15px;
+    line-height: 20px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.spinner {
+    color: var(--c-text-2);
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
