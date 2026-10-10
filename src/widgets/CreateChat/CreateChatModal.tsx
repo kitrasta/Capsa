@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Boxes,
     Check,
@@ -115,11 +115,16 @@ const CreateChatModal = ({ isOpen, onClose }: CreateChatModalProps) => {
     };
 
     // комнаты для выбора в пространство: только вступлённые и не пространства
-    const myRooms = getClient()
-        .getRooms()
-        .filter(
-            (room) => room.getMyMembership() === 'join' && !room.isSpaceRoom(),
-        );
+    // фиксируем на момент открытия формы — живой sync во время выбора не нужен
+    const myRooms = useMemo(
+        () =>
+            getClient()
+                .getRooms()
+                .filter(
+                    (room) => room.getMyMembership() === 'join' && !room.isSpaceRoom(),
+                ),
+        [],
+    );
 
     const handleToggleRoom = (room: Room) => {
         setSelectedRooms((prev) =>
