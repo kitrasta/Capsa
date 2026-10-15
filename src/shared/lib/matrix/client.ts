@@ -9,6 +9,9 @@ import { Preset, RoomType, Visibility, EventType } from 'matrix-js-sdk';
 export const MATRIX_HOMESERVER_URL = 'https://matrix.org';
 
 let client: MatrixClient | null = null
+// ссылка на room-стор: при выходе нужно закрыть его соединение с IndexedDB,
+// иначе deleteDatabase упрётся в blocked и logout повиснет
+let roomStore: IndexedDBStore | null = null
 
 const createStore = async () => {
     try {
@@ -32,6 +35,11 @@ export const initClient = async (session: MatrixSession): Promise<MatrixClient> 
         client.stopClient();
     }
     const store = await createStore();
+    if (store instanceof IndexedDBStore) {
+        roomStore = store;
+    } else {
+        roomStore = null;
+    }
     client = createClient({
         baseUrl: MATRIX_HOMESERVER_URL,
         accessToken: session.accessToken,
@@ -258,7 +266,9 @@ export const setAvatar = async (file: File): Promise<void> => {
 
 // удаление базы IndexedDB с проверкой результата:
 // deleteDatabase возвращает request с событиями — оборачиваем в Promise,
-// чтобы не считать logout успешным при неудалении
+// чтобы не считать logout успешным при неудалении.
+// blocked = базу держит открытое соединение: не завершаем promise,
+// а репортим ошибку — logout не должен висеть вечно
 const deleteDatabase = (name: string): Promise<void> =>
     new Promise((resolve, reject) => {
         const request = indexedDB.deleteDatabase(name);
@@ -268,12 +278,19 @@ const deleteDatabase = (name: string): Promise<void> =>
                 request.error ??
                     new Error(`Не удалось удалить IndexedDB: ${name}`),
             );
+        request.onblocked = () =>
+            reject(
+                new Error(
+                    `База ${name} заблокирована открытым соединением (blocked)`,
+                ),
+            );
     });
 
 // выход: останавливаем клиент, чистим localStorage и IndexedDB
 export const logout = async (): Promise<void> => {
     const matrixClient = getClient();
     let deleteResults: PromiseSettledResult<void>[] | undefined;
+    let roomStoreError: unknown | undefined = undefined;
     try {
         await matrixClient.logout();
     } finally {
@@ -283,6 +300,19 @@ export const logout = async (): Promise<void> => {
         clearSession();
         // сброс синглтона: повторный вход создаст свежий клиент
         client = null;
+
+        // закрываем соединение room-стора до deleteDatabase,
+        // иначе удаление упрётся в blocked и logout повиснет
+        if (roomStore) {
+            try {
+                await roomStore.deleteAllData();
+                await roomStore.destroy();
+            } catch (error) {
+                roomStoreError = error;
+            }
+            roomStore = null;
+        }
+
         // криптостойки и room-стор живут в IndexedDB — вытираем начисто
         // и ДОЖИДАЕМСЯ реального удаления обеих баз:
         // allSettled, чтобы попытка удаления второй не пропала при падении первой
@@ -294,9 +324,12 @@ export const logout = async (): Promise<void> => {
 
     // после finally: throw здесь не перетирает ошибку серверного logout
     const failures = (deleteResults ?? []).filter((r) => r.status === 'rejected');
-    if (failures.length > 0) {
+    if (roomStoreError || failures.length > 0) {
         // logout нельзя считать успешным — ошибка всплывёт вызывающему
-        throw new Error(`Не удалось удалить базы IndexedDB (${failures.length})`);
+        throw new Error(
+            `Не удалось завершить logout: баз осталось ${failures.length}` +
+                (roomStoreError ? ', стор не закрылся' : ''),
+        );
     }
 };
 
