@@ -2,7 +2,7 @@ import style from './LoginPage.module.css';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser } from '../shared/lib/matrix/client';
-import { saveSession, getSession } from '../shared/lib/matrix/session';
+import { saveSession, getSession, clearSession } from '../shared/lib/matrix/session';
 
 const LoginPage = () => {
     const savedSession = getSession();
@@ -16,12 +16,23 @@ const LoginPage = () => {
 
     const [login, setLogin] = useState('');
     const [password, setPassword] = useState('')
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (isSubmitting) return;
 
+        setIsSubmitting(true);
+        setError(null);
         try {
             const result = await loginUser(login, password);
+
+            // сначала валидируем ответ — битую сессию не сохраняем
+            if (!result.access_token || !result.user_id || !result.device_id) {
+                throw new Error('Неполный ответ сервера');
+            }
+
             saveSession({
                 accessToken: result.access_token,
                 userId: result.user_id,
@@ -29,8 +40,14 @@ const LoginPage = () => {
             });
 
             navigate('/chats');
-        } catch (error) {
-            console.error('Login failed', error)
+        } catch (err) {
+            console.error('Login failed', err);
+            // откат: если сессия успела сохраниться частично — стираем,
+            // иначе юзер застрянет в битой сессии с редиректом на /chats
+            clearSession();
+            setError('Не удалось войти. Проверьте логин и пароль.');
+        } finally {
+            setIsSubmitting(false);
         }
     }
 
@@ -59,7 +76,10 @@ const LoginPage = () => {
                         type="password"
                         id='password'
                         placeholder="send your password" />
-                    <button className={style.login} type="submit">Войти</button>
+                    <button className={style.login} type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? 'Вход…' : 'Войти'}
+                    </button>
+                    {error && <p className={style.error}>{error}</p>}
                 </form>
 
             </div>

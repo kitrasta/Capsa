@@ -2,6 +2,7 @@ import { createClient, MemoryStore, IndexedDBStore } from 'matrix-js-sdk';
 import { AllDevicesIsolationMode } from 'matrix-js-sdk/lib/crypto-api';
 import type {LoginResponse, IPublicRoomsChunkRoom, Room, MatrixClient} from "matrix-js-sdk";
 import type { MatrixSession } from './session';
+import { clearSession } from './session';
 
 import { Preset, RoomType, Visibility, EventType } from 'matrix-js-sdk';
 
@@ -255,20 +256,47 @@ export const setAvatar = async (file: File): Promise<void> => {
     await client.setAvatarUrl(content_uri);
 };
 
+// удаление базы IndexedDB с проверкой результата:
+// deleteDatabase возвращает request с событиями — оборачиваем в Promise,
+// чтобы не считать logout успешным при неудалении
+const deleteDatabase = (name: string): Promise<void> =>
+    new Promise((resolve, reject) => {
+        const request = indexedDB.deleteDatabase(name);
+        request.onsuccess = () => resolve();
+        request.onerror = () =>
+            reject(
+                request.error ??
+                    new Error(`Не удалось удалить IndexedDB: ${name}`),
+            );
+    });
+
 // выход: останавливаем клиент, чистим localStorage и IndexedDB
 export const logout = async (): Promise<void> => {
     const matrixClient = getClient();
+    let deleteResults: PromiseSettledResult<void>[] | undefined;
     try {
         await matrixClient.logout();
     } finally {
         // даже при ошибке сети юзер должен выйти из сломанной сессии
         matrixClient.stopClient();
-        localStorage.clear();
-        // криптостойки и room-стор живут в IndexedDB — вытираем начисто
-        indexedDB.deleteDatabase('capsa-matrix-store');
-        indexedDB.deleteDatabase('capsa-crypto');
+        // только свои ключи сессии — все операции с localStorage живут в session.ts
+        clearSession();
         // сброс синглтона: повторный вход создаст свежий клиент
         client = null;
+        // криптостойки и room-стор живут в IndexedDB — вытираем начисто
+        // и ДОЖИДАЕМСЯ реального удаления обеих баз:
+        // allSettled, чтобы попытка удаления второй не пропала при падении первой
+        deleteResults = await Promise.allSettled([
+            deleteDatabase('capsa-matrix-store'),
+            deleteDatabase('capsa-crypto'),
+        ]);
+    }
+
+    // после finally: throw здесь не перетирает ошибку серверного logout
+    const failures = (deleteResults ?? []).filter((r) => r.status === 'rejected');
+    if (failures.length > 0) {
+        // logout нельзя считать успешным — ошибка всплывёт вызывающему
+        throw new Error(`Не удалось удалить базы IndexedDB (${failures.length})`);
     }
 };
 

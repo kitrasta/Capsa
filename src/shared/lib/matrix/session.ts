@@ -29,3 +29,10 @@ export function saveSession(session: MatrixSession):
     localStorage.setItem(USER_ID, session.userId);
     localStorage.setItem(DEVICE_ID, session.deviceId);
 };
+
+// чистим только свои ключи — чужие данные origin не трогаем
+export function clearSession(): void {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(USER_ID);
+    localStorage.removeItem(DEVICE_ID);
+}

@@ -69,6 +69,18 @@
     filter: brightness(1.1);
 }
 
+.login:disabled {
+    opacity: 0.5;
+    cursor: default;
+    filter: none;
+}
+
 .login:active {
     filter: brightness(0.9);
+}
+
+.error {
+    color: var(--c-danger, #e5484d);
+    font-size: 13px;
+    line-height: 18px;
 }
