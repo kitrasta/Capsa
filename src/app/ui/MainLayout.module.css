@@ -18,3 +18,15 @@
     flex-direction: column;
 }
 
+/* ошибка старта Matrix вместо бесконечной «Загрузка...» */
+.startupError {
+    margin: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-bg-soft);
+    color: var(--c-danger, #e5484d);
+    font-size: 13px;
+    line-height: 18px;
+}
+

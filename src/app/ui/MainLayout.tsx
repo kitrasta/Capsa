@@ -9,6 +9,7 @@ import { initClient, startClient } from '../../shared/lib/matrix/client'
 const MainLayout = () => {
 
     const [isMatrixReady, setIsMatrixReady] = useState(false)
+    const [startupError, setStartupError] = useState<string | null>(null)
     const { pathname } = useLocation();
     const isSettings = pathname.startsWith('/settings');
 
@@ -25,6 +26,12 @@ const MainLayout = () => {
                 setIsMatrixReady(true)
             } catch (error) {
                 console.error('Failed to start Matrix client', error)
+                // юзер должен видеть причину, а не вечно вращающуюся загрузку
+                setStartupError(
+                    error instanceof Error
+                        ? error.message
+                        : 'Не удалось подключиться к серверу',
+                )
             }
 };
         startMatrix();
@@ -34,7 +41,9 @@ const MainLayout = () => {
             <aside className={styles.sidebar}>
                 {isMatrixReady
                     ? (isSettings ? <SettingsMenu /> : <Sidebar />)
-                    : <p>Загрузка Matrix...</p>}
+                    : startupError
+                      ? <p className={styles.startupError}>{startupError}</p>
+                      : <p>Загрузка Matrix...</p>}
             </aside>
             <main className={styles.content}><Outlet /></main>
 

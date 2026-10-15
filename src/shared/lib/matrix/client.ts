@@ -8,6 +8,20 @@ import { Preset, RoomType, Visibility, EventType } from 'matrix-js-sdk';
 
 export const MATRIX_HOMESERVER_URL = 'https://matrix.org';
 
+// префикс крипто-базы rust-бэкенда. Важно: реальные имена баз —
+// `${prefix}::matrix-sdk-crypto` и `${prefix}::matrix-sdk-crypto-meta`,
+// поэтому удалять их надо через client.clearStores({ cryptoDatabasePrefix }),
+// а не голом deleteDatabase по имени префикса
+const CRYPTO_DB_PREFIX_BASE = 'capsa-crypto';
+
+// scoped-префикс: база привязана к аккаунту, поэтому второй аккаунт
+// в том же браузере физически не может увидеть чужие account-ключи
+const cryptoDbPrefix = (userId: string): string => {
+    // имя IndexedDB не должно содержать ':' и прочие недопустимые символы
+    const safeUserId = userId.replace(/[^a-zA-Z0-9._-]+/g, '_');
+    return `${CRYPTO_DB_PREFIX_BASE}:${safeUserId}`;
+};
+
 let client: MatrixClient | null = null
 // ссылка на room-стор: при выходе нужно закрыть его соединение с IndexedDB,
 // иначе deleteDatabase упрётся в blocked и logout повиснет
@@ -53,34 +67,72 @@ export const initClient = async (session: MatrixSession): Promise<MatrixClient> 
     return client;
 };
 
+// крипто-база принадлежит другому аккаунту: чужие account-ключи бесполезны и опасны.
+// Лечится только удалением базы и повторной инициализацией
+const isAccountMismatchError = (error: unknown): boolean => {
+    const message =
+        error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+    return /doesn'?t match|does not match/i.test(message);
+};
+
 // сквозное шифрование: rust-криптобэкенд (wasm)
 // отправка/расшифровка в зашифрованных комнатах дальше работает автоматически
 const initCrypto = async (): Promise<void> => {
+    const userId = client!.getUserId();
+    if (!userId) {
+        throw new Error('Cannot init crypto: client has no userId');
+    }
+    const prefix = cryptoDbPrefix(userId);
+    const opts = { useIndexedDB: true, cryptoDatabasePrefix: prefix };
+
     try {
-        await client!.initRustCrypto({
-            useIndexedDB: true,
-            cryptoDatabasePrefix: 'capsa-crypto',
-        });
-
-        const crypto = client!.getCrypto();
-        if (crypto) {
-            // ключи шифрования расдаются всем устройствам в комнате:
-            // без верификации устройств сообщения всё равно доставляются
-            crypto.setDeviceIsolationMode(new AllDevicesIsolationMode(false));
-
-            // cross-signing: если на сервере уже есть ключи — доверяем им;
-            // для нового аккаунта бутстрап не критичен (шифрование работает и так)
-            if (!(await crypto.isCrossSigningReady())) {
-                try {
-                    await crypto.bootstrapCrossSigning({});
-                } catch {
-                    // бутстрап требует UIA (пароль) — не блокируем запуск,
-                    // устройства будут «непроверенными», но E2EE работает
-                }
-            }
-        }
+        await client!.initRustCrypto(opts);
     } catch (error) {
-        console.error('Failed to initialize crypto:', error);
+        if (!isAccountMismatchError(error)) {
+            console.error('Failed to initialize crypto:', error);
+            throw new Error(
+                'Не удалось включить сквозное шифрование. Проверьте соединение и перезагрузите страницу.',
+                { cause: error },
+            );
+        }
+
+        // база с чужими ключами — удаляем её и пробуем ещё раз (один раз,
+        // иначе зациклимся на повторяющейся ошибке)
+        console.warn(
+            'Crypto store belongs to another account — clearing it and retrying once',
+            error,
+        );
+        try {
+            await client!.clearStores({ cryptoDatabasePrefix: prefix });
+            await client!.initRustCrypto(opts);
+        } catch (retryError) {
+            console.error('Failed to initialize crypto after reset:', retryError);
+            throw new Error(
+                'Не удалось включить сквозное шифрование. Перейдите на другой аккаунт или очистите данные сайта.',
+                { cause: retryError },
+            );
+        }
+    }
+
+    const crypto = client!.getCrypto();
+    if (!crypto) {
+        // initRustCrypto не бросил ошибку, но и крипто не дал — тихо игнорировать нельзя
+        throw new Error('Сквозное шифрование недоступно в этом окружении.');
+    }
+
+    // ключи шифрования расдаются всем устройствам в комнате:
+    // без верификации устройств сообщения всё равно доставляются
+    crypto.setDeviceIsolationMode(new AllDevicesIsolationMode(false));
+
+    // cross-signing: если на сервере уже есть ключи — доверяем им;
+    // для нового аккаунта бутстрап не критичен (шифрование работает и так)
+    if (!(await crypto.isCrossSigningReady())) {
+        try {
+            await crypto.bootstrapCrossSigning({});
+        } catch {
+            // бутстрап требует UIA (пароль) — не блокируем запуск,
+            // устройства будут «непроверенными», но E2EE работает
+        }
     }
 };
 
@@ -286,9 +338,20 @@ const deleteDatabase = (name: string): Promise<void> =>
             );
     });
 
+// имена баз rust-криптобэкенда для данного префикса
+// (см. client.clearStores в matrix-js-sdk — SDK создаёт ровно эти две)
+const rustCryptoDbNames = (prefix: string): string[] => [
+    `${prefix}::matrix-sdk-crypto`,
+    `${prefix}::matrix-sdk-crypto-meta`,
+];
+
 // выход: останавливаем клиент, чистим localStorage и IndexedDB
 export const logout = async (): Promise<void> => {
     const matrixClient = getClient();
+    // захватываем scoped-префикс ДО сброса синглтона: без клиента userId не взять
+    const userId = matrixClient.getUserId();
+    const cryptoPrefix = userId ? cryptoDbPrefix(userId) : null;
+
     let deleteResults: PromiseSettledResult<void>[] | undefined;
     let roomStoreError: unknown | undefined = undefined;
     try {
@@ -313,13 +376,14 @@ export const logout = async (): Promise<void> => {
             roomStore = null;
         }
 
-        // криптостойки и room-стор живут в IndexedDB — вытираем начисто
-        // и ДОЖИДАЕМСЯ реального удаления обеих баз:
-        // allSettled, чтобы попытка удаления второй не пропала при падении первой
-        deleteResults = await Promise.allSettled([
-            deleteDatabase('capsa-matrix-store'),
-            deleteDatabase('capsa-crypto'),
-        ]);
+        // вытираем начисто room-стор и ОБЕ крипто-базы текущего аккаунта
+        // (чужиеscoped-базы не трогаем), дожидаясь реального удаления:
+        // allSettled, чтобы падение одного удаления не отменило остальные
+        const dbNames = [
+            'capsa-matrix-store',
+            ...(cryptoPrefix ? rustCryptoDbNames(cryptoPrefix) : []),
+        ];
+        deleteResults = await Promise.allSettled(dbNames.map(deleteDatabase));
     }
 
     // после finally: throw здесь не перетирает ошибку серверного logout
@@ -327,7 +391,7 @@ export const logout = async (): Promise<void> => {
     if (roomStoreError || failures.length > 0) {
         // logout нельзя считать успешным — ошибка всплывёт вызывающему
         throw new Error(
-            `Не удалось завершить logout: баз осталось ${failures.length}` +
+            `Не удалось завершить logout: не удалено баз (${failures.length})` +
                 (roomStoreError ? ', стор не закрылся' : ''),
         );
     }
