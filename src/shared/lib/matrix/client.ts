@@ -67,8 +67,41 @@ export const initClient = async (session: MatrixSession): Promise<MatrixClient> 
     return client;
 };
 
+// удаление базы IndexedDB с проверкой результата:
+// deleteDatabase возвращает request с событиями — оборачиваем в Promise,
+// чтобы не считать операцию успешной при неудалении.
+// blocked = базу держит открытое соединение: не завершаем promise,
+// а репортим ошибку — операция не должна висеть вечно
+const deleteDatabase = (name: string): Promise<void> =>
+    new Promise((resolve, reject) => {
+        const request = indexedDB.deleteDatabase(name);
+        request.onsuccess = () => resolve();
+        request.onerror = () =>
+            reject(
+                request.error ??
+                    new Error(`Не удалось удалить IndexedDB: ${name}`),
+            );
+        request.onblocked = () =>
+            reject(
+                new Error(
+                    `База ${name} заблокирована открытым соединением (blocked)`,
+                ),
+            );
+    });
+
+// имена баз rust-криптобэкенда для данного префикса
+// (см. client.clearStores в matrix-js-sdk — SDK создаёт ровно эти две)
+const rustCryptoDbNames = (prefix: string): string[] => [
+    `${prefix}::matrix-sdk-crypto`,
+    `${prefix}::matrix-sdk-crypto-meta`,
+];
+
 // крипто-база принадлежит другому аккаунту: чужие account-ключи бесполезны и опасны.
 // Лечится только удалением базы и повторной инициализацией
+//
+// TODO: классификация по тексту сообщения хрупкая — если в matrix-js-sdk
+// появится typed error / errcode для этого случая, перейти на него
+// (сейчас mismatch молча скатился бы в фатальную ошибку без retry)
 const isAccountMismatchError = (error: unknown): boolean => {
     const message =
         error instanceof Error ? error.message : typeof error === 'string' ? error : '';
@@ -96,14 +129,16 @@ const initCrypto = async (): Promise<void> => {
             );
         }
 
-        // база с чужими ключами — удаляем её и пробуем ещё раз (один раз,
-        // иначе зациклимся на повторяющейся ошибке)
+        // база с чужими ключами — удаляем ТОЛЬКО её и пробуем ещё раз (один раз,
+        // иначе зациклимся на повторяющейся ошибке).
+        // clearStores здесь не используем: он чистит и room-стор, а проблема
+        // только в крипто-базе — полный ресинк комнат нам ни к чему
         console.warn(
             'Crypto store belongs to another account — clearing it and retrying once',
             error,
         );
         try {
-            await client!.clearStores({ cryptoDatabasePrefix: prefix });
+            await Promise.all(rustCryptoDbNames(prefix).map(deleteDatabase));
             await client!.initRustCrypto(opts);
         } catch (retryError) {
             console.error('Failed to initialize crypto after reset:', retryError);
@@ -316,35 +351,6 @@ export const setAvatar = async (file: File): Promise<void> => {
     await client.setAvatarUrl(content_uri);
 };
 
-// удаление базы IndexedDB с проверкой результата:
-// deleteDatabase возвращает request с событиями — оборачиваем в Promise,
-// чтобы не считать logout успешным при неудалении.
-// blocked = базу держит открытое соединение: не завершаем promise,
-// а репортим ошибку — logout не должен висеть вечно
-const deleteDatabase = (name: string): Promise<void> =>
-    new Promise((resolve, reject) => {
-        const request = indexedDB.deleteDatabase(name);
-        request.onsuccess = () => resolve();
-        request.onerror = () =>
-            reject(
-                request.error ??
-                    new Error(`Не удалось удалить IndexedDB: ${name}`),
-            );
-        request.onblocked = () =>
-            reject(
-                new Error(
-                    `База ${name} заблокирована открытым соединением (blocked)`,
-                ),
-            );
-    });
-
-// имена баз rust-криптобэкенда для данного префикса
-// (см. client.clearStores в matrix-js-sdk — SDK создаёт ровно эти две)
-const rustCryptoDbNames = (prefix: string): string[] => [
-    `${prefix}::matrix-sdk-crypto`,
-    `${prefix}::matrix-sdk-crypto-meta`,
-];
-
 // выход: останавливаем клиент, чистим localStorage и IndexedDB
 export const logout = async (): Promise<void> => {
     const matrixClient = getClient();
@@ -377,7 +383,7 @@ export const logout = async (): Promise<void> => {
         }
 
         // вытираем начисто room-стор и ОБЕ крипто-базы текущего аккаунта
-        // (чужиеscoped-базы не трогаем), дожидаясь реального удаления:
+        // (чужие scoped-базы не трогаем), дожидаясь реального удаления:
         // allSettled, чтобы падение одного удаления не отменило остальные
         const dbNames = [
             'capsa-matrix-store',
@@ -394,6 +400,20 @@ export const logout = async (): Promise<void> => {
             `Не удалось завершить logout: не удалено баз (${failures.length})` +
                 (roomStoreError ? ', стор не закрылся' : ''),
         );
+    }
+};
+
+// миграция: до scoped-именования крипто-база называлась просто 'capsa-crypto'.
+// У старых установок она остаётся сиротой — её больше никто не использует
+// и никогда не удалит, так что чистим один раз при старте
+const LEGACY_CRYPTO_DB_NAME = CRYPTO_DB_PREFIX_BASE;
+
+export const cleanupLegacyCryptoStore = async (): Promise<void> => {
+    try {
+        await deleteDatabase(LEGACY_CRYPTO_DB_NAME);
+    } catch (error) {
+        // мусорная база не должна ломать запуск — максимум, останется висяк
+        console.warn('Failed to remove legacy crypto store:', error);
     }
 };
 

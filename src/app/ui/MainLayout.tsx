@@ -4,7 +4,7 @@ import Sidebar from '../../widgets/Sidebar/Sidebar';
 import SettingsMenu from '../../widgets/Settings/SettingsMenu';
 import { useEffect, useState } from 'react';
 import { getSession } from '../../shared/lib/matrix/session';
-import { initClient, startClient } from '../../shared/lib/matrix/client'
+import { initClient, startClient, cleanupLegacyCryptoStore } from '../../shared/lib/matrix/client'
 
 const MainLayout = () => {
 
@@ -21,6 +21,8 @@ const MainLayout = () => {
         };
         const startMatrix = async () => {
             try {
+                // разовая подчистка сироты от старого нейминга крипто-базы
+                await cleanupLegacyCryptoStore();
                 await initClient(session);
                 await startClient();
                 setIsMatrixReady(true)
