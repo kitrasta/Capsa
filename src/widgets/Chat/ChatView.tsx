@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalS
 import { useNavigate } from 'react-router-dom';
 import { ClientEvent, RoomEvent, RoomMemberEvent, MatrixEventEvent } from 'matrix-js-sdk';
 import { getClient } from '../../shared/lib/matrix/client';
-import Avatar from '../Sidebar/RoomList/Avatar';
+import { Avatar } from '../../shared/ui/Avatar';
 import MessageBubble from './MessageBubble';
 import styles from './ChatView.module.css';
 

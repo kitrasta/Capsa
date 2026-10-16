@@ -1,10 +1,10 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { Room } from 'matrix-js-sdk';
 import { RoomStateEvent } from 'matrix-js-sdk';
-import { getClient } from '../../../shared/lib/matrix/client';
+import { getClient } from '../../lib/matrix/client';
 import styles from './Avatar.module.css';
 
-interface Props {
+export interface Props {
     room: Room;
     size: number;
 }
