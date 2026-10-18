@@ -1,6 +1,6 @@
 import { createClient, MemoryStore, IndexedDBStore } from 'matrix-js-sdk';
 import { AllDevicesIsolationMode } from 'matrix-js-sdk/lib/crypto-api';
-import type {LoginResponse, IPublicRoomsChunkRoom, Room, MatrixClient} from "matrix-js-sdk";
+import type { IPublicRoomsChunkRoom, Room, MatrixClient } from "matrix-js-sdk";
 import type { MatrixSession } from './session';
 import { clearSession } from './session';
 
@@ -179,10 +179,36 @@ export const startClient = async (): Promise<void> => {
 };
 
 
+// Ответ от /login: поля доступны по спецификации, но их может не быть —
+// поэтому проверяем их явным образом, а не полагаемся на типы.
+interface MatrixLoginResponse {
+    access_token?: string;
+    user_id?: string;
+    device_id?: string;
+}
+
+// Проверка полей login-ответа строго на непустую строку.
+// accessToken проверяем только так: у Matrix нет устойчивого формата токена,
+// и мы его нигде не логируем — привязываться к формату regex-ом смысла нет.
+// userId проверяем на Matrix-форму @localpart:homeserver.
+export function validateLoginResponse(
+    result: MatrixLoginResponse,
+): asserts result is Required<MatrixLoginResponse> {
+    if (!result.access_token || typeof result.access_token !== 'string' || result.access_token.trim().length === 0) {
+        throw new Error('Неполный ответ сервера: отсутствует access_token');
+    }
+    if (!result.user_id || typeof result.user_id !== 'string' || !/^@[^:]+:.+$/.test(result.user_id)) {
+        throw new Error('Неполный ответ сервера: отсутствует user_id или неверный Matrix-идентификатор');
+    }
+    if (!result.device_id || typeof result.device_id !== 'string' || result.device_id.trim().length === 0) {
+        throw new Error('Неполный ответ сервера: отсутствует device_id');
+    }
+}
+
 export const loginUser = async (
     login: string,
     password: string,
-): Promise<LoginResponse> => {
+): Promise<MatrixLoginResponse> => {
     const tempClient = createClient({ baseUrl: MATRIX_HOMESERVER_URL });
     return tempClient.loginRequest({  
 
@@ -194,6 +220,7 @@ export const loginUser = async (
         password,
     });
 };
+
     
 
 

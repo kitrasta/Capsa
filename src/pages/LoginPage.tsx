@@ -1,7 +1,7 @@
 import style from './LoginPage.module.css';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser } from '../shared/lib/matrix/client';
+import { loginUser, validateLoginResponse } from '../shared/lib/matrix/client';
 import { saveSession, getSession, clearSession } from '../shared/lib/matrix/session';
 
 const LoginPage = () => {
@@ -28,15 +28,16 @@ const LoginPage = () => {
         try {
             const result = await loginUser(login, password);
 
-            // сначала валидируем ответ — битую сессию не сохраняем
-            if (!result.access_token || !result.user_id || !result.device_id) {
-                throw new Error('Неполный ответ сервера');
-            }
+            // явная валидация полей login-ответа — до saveSession:
+            // — access_token / device_id строго непустая строка;
+            // — user_id строго по форме @localpart:homeserver;
+            // — токен нигде не логируется
+            validateLoginResponse(result);
 
             saveSession({
-                accessToken: result.access_token,
-                userId: result.user_id,
-                deviceId: result.device_id,
+                accessToken: result.access_token!,
+                userId: result.user_id!,
+                deviceId: result.device_id!,
             });
 
             navigate('/chats');
