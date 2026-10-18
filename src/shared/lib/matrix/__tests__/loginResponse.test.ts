@@ -32,6 +32,11 @@ describe('validateLoginResponse', () => {
             .toThrow('Неполный ответ сервера: отсутствует device_id');
     });
 
+    it('пробелы в device_id отбрасывают', () => {
+        expect(() => validateLoginResponse({ ...valid, device_id: '   ' }))
+            .toThrow('Неполный ответ сервера: отсутствует device_id');
+    });
+
     it('неверный Matrix-формат userId отбрасывает (invalid-user)', () => {
         expect(() => validateLoginResponse({ ...valid, user_id: 'invalid-user' }))
             .toThrow('Неполный ответ сервера: отсутствует user_id или неверный Matrix-идентификатор');
@@ -52,11 +57,25 @@ describe('validateLoginResponse', () => {
         expect(() => validateLoginResponse(r)).not.toThrow();
     });
 
-    it('после валидации TS сводит типы до Required — поле доступно', () => {
-        validateLoginResponse(valid);
-        // TS: в этом блоке result узко типизирован как Required<MatrixLoginResponse>,
-        // поэтому доступ к access_token (до этого string | undefined) корректен
-        const token = valid.access_token;
+    it('после валидации TS сводит типы до Required — optional-поля становятся строками', () => {
+        // объект с optional-полями: до валидации поля могут быть undefined,
+        // assertion signature validateLoginResponse сужает их до string
+        const response: {
+            access_token?: string;
+            user_id?: string;
+            device_id?: string;
+        } = { ...valid };
+
+        validateLoginResponse(response);
+
+        // эти присваивания компилируются только благодаря asserts-signature:
+        // без него TS бы ругался на string | undefined в строковую переменную
+        const token: string = response.access_token;
+        const userId: string = response.user_id;
+        const deviceId: string = response.device_id;
+
         expect(token).toBe('test-access-token');
+        expect(userId).toBe('@alice:example.org');
+        expect(deviceId).toBe('DEVICE1');
     });
 });
