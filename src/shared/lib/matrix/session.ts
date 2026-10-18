@@ -37,38 +37,58 @@ const isValidSession = (session: Partial<MatrixSession> | Record<'accessToken' |
 
 let migrationDone = false;
 
-// Однократная и тихая миграция со старых ключей на новые.
-// Валидные старые значения переносятся в новый формат и старые ключи удаляются.
-// Битые старые значения просто удаляются. Токен никогда не логируется.
-function migrateLegacyKeys(): MatrixSession | null {
+function removeSessionKeys(): void {
+    (Object.keys(SESSION_KEYS) as SessionField[]).forEach((field) => {
+        localStorage.removeItem(SESSION_KEYS[field]);
+    });
+}
+
+function removeLegacyKeys(): void {
+    (Object.keys(LEGACY_KEYS) as SessionField[]).forEach((field) => {
+        localStorage.removeItem(LEGACY_KEYS[field]);
+    });
+}
+
+// Однократная и тихая миграция со старых ключей на новые. Токен никогда не логируется.
+// done = false означает временный сбой хранения — миграцию можно повторить
+// при следующем getSession().
+function migrateLegacyKeys(): { session: MatrixSession | null; done: boolean } {
     try {
         const accessToken = localStorage.getItem(LEGACY_KEYS.accessToken);
         const userId = localStorage.getItem(LEGACY_KEYS.userId);
         const deviceId = localStorage.getItem(LEGACY_KEYS.deviceId);
 
-        // Старых ключей нет — делать нечего.
+        // Старых ключей нет — делать нечего, миграция завершена.
         if (accessToken === null && userId === null && deviceId === null) {
-            return null;
+            return { session: null, done: true };
         }
 
         const legacySession = { accessToken, userId, deviceId };
-        // Удаляем битые старые ключи в любом случае.
-        localStorage.removeItem(LEGACY_KEYS.accessToken);
-        localStorage.removeItem(LEGACY_KEYS.userId);
-        localStorage.removeItem(LEGACY_KEYS.deviceId);
-
+        // Битые старые значения просто удаляем — повторять нечего.
         if (!isValidSession(legacySession)) {
-            return null;
+            removeLegacyKeys();
+            return { session: null, done: true };
         }
 
-        // Переносим в новый формат.
-        localStorage.setItem(SESSION_KEYS.accessToken, legacySession.accessToken);
-        localStorage.setItem(SESSION_KEYS.userId, legacySession.userId);
-        localStorage.setItem(SESSION_KEYS.deviceId, legacySession.deviceId);
-        return legacySession;
+        // Сначала пишем новый формат...
+        try {
+            localStorage.setItem(SESSION_KEYS.accessToken, legacySession.accessToken);
+            localStorage.setItem(SESSION_KEYS.userId, legacySession.userId);
+            localStorage.setItem(SESSION_KEYS.deviceId, legacySession.deviceId);
+        } catch {
+            // Запись не удалась — убираем частично записанные новые ключи,
+            // старые не трогаем: они остаются для следующей попытки миграции.
+            removeSessionKeys();
+            return { session: null, done: false };
+        }
+
+        // ...и только после успешной записи удаляем старые ключи.
+        removeLegacyKeys();
+        return { session: legacySession, done: true };
     } catch {
-        // localStorage может быть недоступен (приватный режим и т.п.) — пропускаем
-        return null;
+        // Ошибка доступа при чтении (приватный режим и т.п.) —
+        // миграцию не считаем завершённой, повторим позже.
+        return { session: null, done: false };
     }
 }
 
@@ -89,11 +109,13 @@ export function getSession(): MatrixSession | null {
         const noNewKeys =
             accessToken === null && userId === null && deviceId === null;
         if (noNewKeys && !migrationDone) {
-            migrationDone = true;
             const migrated = migrateLegacyKeys();
-            // 4. старые значения были валидны — возвращаем мигрированную сессию
-            if (migrated) {
-                return migrated;
+            // Миграцию считаем завершённой только когда она дошла до конца;
+            // при временном сбое хранения повторим при следующем getSession().
+            migrationDone = migrated.done;
+            // Старые значения были валидны — возвращаем мигрированную сессию
+            if (migrated.session) {
+                return migrated.session;
             }
         }
 
@@ -120,7 +142,5 @@ export function saveSession(session: MatrixSession): void {
 
 // Удаляем только ключи Capsa — никакого localStorage.clear(), чужие данные origin не трогаем.
 export function clearSession(): void {
-    (Object.keys(SESSION_KEYS) as SessionField[]).forEach((field) => {
-        localStorage.removeItem(SESSION_KEYS[field]);
-    });
+    removeSessionKeys();
 }
