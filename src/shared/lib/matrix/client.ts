@@ -3,8 +3,9 @@ import { AllDevicesIsolationMode } from 'matrix-js-sdk/lib/crypto-api';
 import type { IPublicRoomsChunkRoom, Room, MatrixClient } from "matrix-js-sdk";
 import type { MatrixSession } from './session';
 import { clearSession } from './session';
+import { matrixLifecycle, notifyApiError } from './lifecycle';
 
-import { Preset, RoomType, Visibility, EventType } from 'matrix-js-sdk';
+import { Preset, RoomType, Visibility, EventType, ClientEvent } from 'matrix-js-sdk';
 
 export const MATRIX_HOMESERVER_URL = 'https://matrix.org';
 
@@ -60,6 +61,11 @@ export const initClient = async (session: MatrixSession): Promise<MatrixClient> 
         userId: session.userId,
         deviceId: session.deviceId,
         store,
+    });
+
+    // отслеживаем M_UNKNOWN_TOKEN на sync/API-запросах — сессия истекла
+    client.on(ClientEvent.Sync, (_state, _prev, data) => {
+        notifyApiError(data?.error);
     });
 
     await initCrypto();
@@ -443,4 +449,40 @@ export const cleanupLegacyCryptoStore = async (): Promise<void> => {
         console.warn('Failed to remove legacy crypto store:', error);
     }
 };
+
+// ---------------------------------------------------------------------------
+// Сериализатор lifecycle Matrix-клиента: все операции (init/start/logout)
+// выполняются строго последовательно, без гонок, а состояние видно через
+// subscribe(). UI подписывается на него, а не держит свои флаги готовности.
+// ---------------------------------------------------------------------------
+export const matrixLifecycle = createLifecycleManager({
+    initClient: async (session) => {
+        if (client) {
+            client.stopClient();
+        }
+        const store = await createStore();
+        if (store instanceof IndexedDBStore) {
+            roomStore = store;
+        } else {
+            roomStore = null;
+        }
+        client = createClient({
+            baseUrl: MATRIX_HOMESERVER_URL,
+            accessToken: session.accessToken,
+            userId: session.userId,
+            deviceId: session.deviceId,
+            store,
+        });
+
+        // отслеживаем M_UNKNOWN_TOKEN на sync/API-запросах — сессия истекла
+        client.on(ClientEvent.Sync, (_state, _prev, data) => {
+            notifyApiError(data?.error);
+        });
+
+        await initCrypto();
+    },
+    startClient,
+    logout,
+    clearSession,
+});
 
