@@ -125,14 +125,18 @@ export class MatrixLifecycleManager {
             } catch (error) {
                 this.session = null;
                 this.deps.clearSession();
+                // cleanup после ошибки инициализации: initClient мог успеть создать
+                // клиента, открыть room-store и поднять crypto — освобождаем ресурсы,
+                // чтобы они не жили до перезагрузки страницы.
+                // Сбой cleanup логируем, но не перетираем исходную ошибку и state.
+                try {
+                    await this.deps.stopClient();
+                } catch (stopError) {
+                    console.error('Failed to clean up after Matrix startup error', stopError);
+                }
                 // токен отозван ещё на старте — та же реакция, что и при sync
                 if (isUnknownTokenError(error)) {
-                    try {
-                        await this.deps.stopClient();
-                    } finally {
-                        // state ставится всегда — юзер не застревает в лоадере
-                        this.setState({ state: 'session expired', error: SESSION_EXPIRED_MESSAGE });
-                    }
+                    this.setState({ state: 'session expired', error: SESSION_EXPIRED_MESSAGE });
                     return;
                 }
                 this.setState({

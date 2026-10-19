@@ -136,6 +136,9 @@ describe('start: классификация ошибок старта', () => {
         expect(manager.getState().error).toBe(
             'Не удалось включить сквозное шифрование. Проверьте соединение и перезагрузите страницу.',
         );
+        // cleanup: клиент/store/crypto освобождены и после crypto-сбоя
+        expect(deps.stopClient).toHaveBeenCalledTimes(1);
+        expect(deps.clearSession).toHaveBeenCalledTimes(1);
     });
 
     it('обычная ошибка старта остаётся generic error', async () => {
@@ -150,6 +153,27 @@ describe('start: классификация ошибок старта', () => {
 
         expect(manager.getState().state).toBe('error');
         expect(manager.getState().error).toBe('fetch failed');
+        // cleanup: initClient мог успеть создать клиента и открыть room-store —
+        // при обычной ошибке они тоже освобождаются, а не живут до перезагрузки
+        expect(deps.stopClient).toHaveBeenCalledTimes(1);
+        expect(deps.clearSession).toHaveBeenCalledTimes(1);
+    });
+
+    it('сбой cleanup не перетирает исходную ошибку и не роняет start()', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const deps = makeDeps({
+            initClient: vi.fn(async () => {
+                throw new Error('startup failed');
+            }),
+            stopClient: vi.fn(async () => {
+                throw new Error('stop failed');
+            }),
+        });
+        const manager = new MatrixLifecycleManager(deps);
+
+        // start() не reject-ится из-за сбоя cleanup — иначе unhandled rejection
+        await expect(manager.start(SESSION)).resolves.toBeUndefined();
+        expect(manager.getState()).toEqual({ state: 'error', error: 'startup failed' });
     });
 });
 
