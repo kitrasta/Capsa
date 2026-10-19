@@ -1,12 +1,16 @@
 import style from './LoginPage.module.css';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { loginUser, validateLoginResponse } from '../shared/lib/matrix/client';
 import { saveSession, getSession, clearSession } from '../shared/lib/matrix/session';
 
 const LoginPage = () => {
     const savedSession = getSession();
     const navigate = useNavigate();
+    const location = useLocation();
+    // понятное сообщение от lifecycle (например, «Сессия истекла, войдите снова»):
+    // его передаёт AuthGuard одним местом — здесь только отображаем
+    const notice = (location.state as { message?: string } | null)?.message ?? null;
 
     useEffect(() => {
         if (savedSession) {
@@ -80,6 +84,7 @@ const LoginPage = () => {
                     <button className={style.login} type="submit" disabled={isSubmitting}>
                         {isSubmitting ? 'Вход…' : 'Войти'}
                     </button>
+                    {notice && !error && <p className={style.notice}>{notice}</p>}
                     {error && <p className={style.error}>{error}</p>}
                 </form>
 

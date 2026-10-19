@@ -84,3 +84,10 @@
     font-size: 13px;
     line-height: 18px;
 }
+
+/* сообщение от lifecycle, например «Сессия истекла, войдите снова» */
+.notice {
+    color: var(--c-text-secondary, #9aa0a6);
+    font-size: 13px;
+    line-height: 18px;
+}

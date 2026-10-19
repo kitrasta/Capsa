@@ -3,7 +3,7 @@ import { AllDevicesIsolationMode } from 'matrix-js-sdk/lib/crypto-api';
 import type { IPublicRoomsChunkRoom, Room, MatrixClient } from "matrix-js-sdk";
 import type { MatrixSession } from './session';
 import { clearSession } from './session';
-import { matrixLifecycle, notifyApiError } from './lifecycle';
+import { createLifecycleManager } from './lifecycle';
 
 import { Preset, RoomType, Visibility, EventType, ClientEvent } from 'matrix-js-sdk';
 
@@ -455,34 +455,42 @@ export const cleanupLegacyCryptoStore = async (): Promise<void> => {
 // выполняются строго последовательно, без гонок, а состояние видно через
 // subscribe(). UI подписывается на него, а не держит свои флаги готовности.
 // ---------------------------------------------------------------------------
+// Единая точка реакции на ошибки sync/API-запросов: M_UNKNOWN_TOKEN
+// разбирает lifecycle-менеджер (остановка клиента, очистка сессии,
+// UI → Login с сообщением). Никакой компонент не делает это сам.
+function notifyApiError(error: unknown): void {
+    matrixLifecycle.handleApiError(error).catch((cleanupError) => {
+        // сбой локальной чистки не должен превращаться в unhandled rejection
+        console.error('Failed to handle Matrix API error', cleanupError);
+    });
+}
+
+// Локальная остановка клиента без серверного /logout: нужна для
+// M_UNKNOWN_TOKEN — токен уже отозван, звонить на сервер бессмысленно.
+// Базы (room-store, крипто) не трогаем: пользователь может войти снова.
+const stopClientLocal = async (): Promise<void> => {
+    if (client) {
+        client.stopClient();
+        client = null;
+    }
+    if (roomStore) {
+        try {
+            await roomStore.destroy();
+        } catch (error) {
+            console.warn('Failed to destroy room store on stop', error);
+        }
+        roomStore = null;
+    }
+};
+
 export const matrixLifecycle = createLifecycleManager({
+    // переиспользуем общий initClient: один Sync-обработчик M_UNKNOWN_TOKEN
     initClient: async (session) => {
-        if (client) {
-            client.stopClient();
-        }
-        const store = await createStore();
-        if (store instanceof IndexedDBStore) {
-            roomStore = store;
-        } else {
-            roomStore = null;
-        }
-        client = createClient({
-            baseUrl: MATRIX_HOMESERVER_URL,
-            accessToken: session.accessToken,
-            userId: session.userId,
-            deviceId: session.deviceId,
-            store,
-        });
-
-        // отслеживаем M_UNKNOWN_TOKEN на sync/API-запросах — сессия истекла
-        client.on(ClientEvent.Sync, (_state, _prev, data) => {
-            notifyApiError(data?.error);
-        });
-
-        await initCrypto();
+        await initClient(session);
     },
     startClient,
     logout,
     clearSession,
+    stopClient: stopClientLocal,
 });
 

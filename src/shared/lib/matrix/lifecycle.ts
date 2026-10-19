@@ -1,6 +1,5 @@
 import type { MatrixSession } from './session';
-import { clearSession } from './session';
-import type { MatrixClient } from 'matrix-js-sdk';
+import { isUnknownTokenError } from './errors';
 
 // ============================================================================
 // Где появляется состояние lifecycle Matrix-клиента
@@ -43,8 +42,14 @@ export interface LifecycleDeps {
     initClient(session: MatrixSession): Promise<void>;
     startClient(): Promise<void>;
     logout(): Promise<void>;
+    // локальная остановка клиента без серверного /logout — для случая,
+    // когда токен уже мёртв и звонить на сервер бессмысленно
+    stopClient(): void | Promise<void>;
     clearSession(): void;
 }
+
+/** Единое понятное сообщение для пользователя при отозванной сессии. */
+export const SESSION_EXPIRED_MESSAGE = 'Сессия истекла, войдите снова';
 
 const initialState: LifecycleSnapshot = { state: 'idle', error: null };
 
@@ -71,14 +76,16 @@ export class MatrixLifecycleManager {
         this.deps = deps;
     }
 
-    getState(): LifecycleSnapshot {
-        return this.snapshot;
-    }
+    // Стрелочные поля: ссылки можно передавать в useSyncExternalStore без bind
+    // (this не теряется) — иначе this оказывается undefined и snapshot не читается
+    getState = (): LifecycleSnapshot => this.snapshot;
 
-    subscribe(listener: () => void): () => void {
+    subscribe = (listener: () => void): (() => void) => {
         this.listeners.add(listener);
-        return () => this.listeners.delete(listener);
-    }
+        return () => {
+            this.listeners.delete(listener);
+        };
+    };
 
     private setState(next: LifecycleSnapshot): void {
         this.snapshot = next;
@@ -117,6 +124,16 @@ export class MatrixLifecycleManager {
             } catch (error) {
                 this.session = null;
                 this.deps.clearSession();
+                // токен отозван ещё на старте — та же реакция, что и при sync
+                if (isUnknownTokenError(error)) {
+                    try {
+                        await this.deps.stopClient();
+                    } finally {
+                        // state ставится всегда — юзер не застревает в лоадере
+                        this.setState({ state: 'session expired', error: SESSION_EXPIRED_MESSAGE });
+                    }
+                    return;
+                }
                 this.setState({
                     state: error instanceof CryptoInitError ? 'crypto error' : 'error',
                     error: messageOf(error),
@@ -150,31 +167,31 @@ export class MatrixLifecycleManager {
     }
 
     // =====================================================================
-    // M_UNKNOWN_TOKEN при sync/API-запросе: сессия отозвана сервером —
-    // локально чистимся и переходим в 'session expired'.
+    // M_UNKNOWN_TOKEN при sync/API-запросе: сессия отозвана сервером.
+    // Единая реакция (не по компонентам):
+    //   1. остановить клиент;
+    //   2. очистить session keys;
+    //   3. очистить локальный lifecycle state → 'session expired';
+    //   4. UI (AuthGuard) уводит на Login и показывает понятное сообщение.
+    // Прочие ошибки (M_FORBIDDEN, M_NOT_FOUND, сеть) здесь не трогаем —
+    // их классифицирует errors.ts и решает вызывающий код.
     // =====================================================================
     handleApiError(error: unknown): Promise<void> {
-        const errcode = this.extractErrcode(error);
-        if (errcode !== 'M_UNKNOWN_TOKEN') {
+        if (!isUnknownTokenError(error)) {
             return Promise.resolve();
         }
         return this.enqueue(async () => {
-            this.deps.clearSession();
-            this.session = null;
-            this.setState({ state: 'session expired', error: null });
+            try {
+                // остановить клиент (токен мёртв, /logout на сервер не звоним)
+                await this.deps.stopClient();
+            } finally {
+                // очистить session keys — всегда, даже если остановка упала
+                this.deps.clearSession();
+                this.session = null;
+                // очистить локальный lifecycle state → UI сам уйдёт на Login
+                this.setState({ state: 'session expired', error: SESSION_EXPIRED_MESSAGE });
+            }
         });
-    }
-
-    private extractErrcode(error: unknown): string | null {
-        if (
-            error &&
-            typeof error === 'object' &&
-            'errcode' in error &&
-            typeof (error as { errcode: unknown }).errcode === 'string'
-        ) {
-            return (error as { errcode: string }).errcode;
-        }
-        return null;
     }
 }
 
