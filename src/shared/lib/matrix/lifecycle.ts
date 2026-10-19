@@ -1,5 +1,6 @@
 import type { MatrixSession } from './session';
 import { isUnknownTokenError } from './errors';
+import { CryptoInitError } from './error-types';
 
 // ============================================================================
 // Где появляется состояние lifecycle Matrix-клиента
@@ -192,17 +193,6 @@ export class MatrixLifecycleManager {
                 this.setState({ state: 'session expired', error: SESSION_EXPIRED_MESSAGE });
             }
         });
-    }
-}
-
-// ---------------------------------------------------------------------------
-// initRustCrypto упал — отдельно от прочих ошибок старта: реакция
-// (перезагрузка страницы / смена аккаунта) должна быть другой.
-// ---------------------------------------------------------------------------
-export class CryptoInitError extends Error {
-    constructor(message: string, options?: { cause?: unknown }) {
-        super(message, options);
-        this.name = 'CryptoInitError';
     }
 }
 

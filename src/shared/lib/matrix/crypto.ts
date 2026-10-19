@@ -3,6 +3,7 @@
 import type { MatrixClient } from 'matrix-js-sdk';
 import { AllDevicesIsolationMode } from 'matrix-js-sdk/lib/crypto-api';
 import { deleteDatabase } from './storage';
+import { CryptoInitError } from './error-types';
 
 // префикс крипто-базы rust-бэкенда. Важно: реальные имена баз —
 // `${prefix}::matrix-sdk-crypto` и `${prefix}::matrix-sdk-crypto-meta`,
@@ -46,7 +47,7 @@ const isAccountMismatchError = (error: unknown): boolean => {
 export const initCrypto = async (client: MatrixClient): Promise<void> => {
     const userId = client.getUserId();
     if (!userId) {
-        throw new Error('Cannot init crypto: client has no userId');
+        throw new CryptoInitError('Cannot init crypto: client has no userId');
     }
     const prefix = cryptoDbPrefix(userId);
     const opts = { useIndexedDB: true, cryptoDatabasePrefix: prefix };
@@ -56,7 +57,7 @@ export const initCrypto = async (client: MatrixClient): Promise<void> => {
     } catch (error) {
         if (!isAccountMismatchError(error)) {
             console.error('Failed to initialize crypto:', error);
-            throw new Error(
+            throw new CryptoInitError(
                 'Не удалось включить сквозное шифрование. Проверьте соединение и перезагрузите страницу.',
                 { cause: error },
             );
@@ -75,7 +76,7 @@ export const initCrypto = async (client: MatrixClient): Promise<void> => {
             await client.initRustCrypto(opts);
         } catch (retryError) {
             console.error('Failed to initialize crypto after reset:', retryError);
-            throw new Error(
+            throw new CryptoInitError(
                 'Не удалось включить сквозное шифрование. Перейдите на другой аккаунт или очистите данные сайта.',
                 { cause: retryError },
             );
@@ -85,7 +86,7 @@ export const initCrypto = async (client: MatrixClient): Promise<void> => {
     const crypto = client.getCrypto();
     if (!crypto) {
         // initRustCrypto не бросил ошибку, но и крипто не дал — тихо игнорировать нельзя
-        throw new Error('Сквозное шифрование недоступно в этом окружении.');
+        throw new CryptoInitError('Сквозное шифрование недоступно в этом окружении.');
     }
 
     // ключи шифрования расдаются всем устройствам в комнате:

@@ -3,6 +3,7 @@ import {
     MatrixLifecycleManager,
     SESSION_EXPIRED_MESSAGE,
 } from '../lifecycle';
+import { CryptoInitError } from '../error-types';
 import type { MatrixSession } from '../session';
 
 // ---------------------------------------------------------------------------
@@ -114,6 +115,41 @@ describe('handleApiError: прочие ошибки', () => {
         expect(deps.stopClient).not.toHaveBeenCalled();
         expect(deps.clearSession).not.toHaveBeenCalled();
         expect(manager.getState().state).toBe('client ready');
+    });
+});
+
+describe('start: классификация ошибок старта', () => {
+    it('CryptoInitError → состояние crypto error, а не generic error', async () => {
+        const deps = makeDeps({
+            initClient: vi.fn(async () => {
+                throw new CryptoInitError(
+                    'Не удалось включить сквозное шифрование. Проверьте соединение и перезагрузите страницу.',
+                    { cause: new Error('wasm failed') },
+                );
+            }),
+        });
+        const manager = new MatrixLifecycleManager(deps);
+
+        await manager.start(SESSION);
+
+        expect(manager.getState().state).toBe('crypto error');
+        expect(manager.getState().error).toBe(
+            'Не удалось включить сквозное шифрование. Проверьте соединение и перезагрузите страницу.',
+        );
+    });
+
+    it('обычная ошибка старта остаётся generic error', async () => {
+        const deps = makeDeps({
+            initClient: vi.fn(async () => {
+                throw new Error('fetch failed');
+            }),
+        });
+        const manager = new MatrixLifecycleManager(deps);
+
+        await manager.start(SESSION);
+
+        expect(manager.getState().state).toBe('error');
+        expect(manager.getState().error).toBe('fetch failed');
     });
 });
 
