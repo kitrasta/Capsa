@@ -2,7 +2,7 @@ import styles from './RoomList.module.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Room, ClientEvent, RoomEvent, RoomStateEvent, SyncState, MatrixEventEvent } from 'matrix-js-sdk';
-import { getClient, getRoomSummary } from '../../../shared/lib/matrix/client';
+import { getClient, getRoomSummary } from '../../../shared/lib/matrix';
 import { useLocation, useNavigate } from 'react-router-dom';
 import RoomListItem from './RoomListItem';
 import UnjoinedRoomItem from './UnjoinedRoomItem';

@@ -3,8 +3,11 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../../widgets/Sidebar/Sidebar';
 import SettingsMenu from '../../widgets/Settings/SettingsMenu';
 import { useEffect, useSyncExternalStore } from 'react';
-import { getSession } from '../../shared/lib/matrix/session';
-import { matrixLifecycle, cleanupLegacyCryptoStore } from '../../shared/lib/matrix/client'
+import {
+    getSession,
+    matrixLifecycle,
+    cleanupLegacyCryptoStore,
+} from '../../shared/lib/matrix';
 
 const MainLayout = () => {
     const snapshot = useSyncExternalStore(

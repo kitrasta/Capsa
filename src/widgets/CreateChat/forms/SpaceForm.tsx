@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import type { Room } from 'matrix-js-sdk';
-import { createSpace, addRoomToSpace, getClient } from '../../../shared/lib/matrix/client';
+import { createSpace, addRoomToSpace, getClient } from '../../../shared/lib/matrix';
 import styles from '../CreateChatModal.module.css';
 
 interface SpaceFormProps {

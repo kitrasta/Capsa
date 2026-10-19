@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
-import { createGroup, searchUsers, type UserSearchResult } from '../../../shared/lib/matrix/client';
+import { createGroup, searchUsers, type UserSearchResult } from '../../../shared/lib/matrix';
 import styles from '../CreateChatModal.module.css';
 
 interface GroupFormProps {

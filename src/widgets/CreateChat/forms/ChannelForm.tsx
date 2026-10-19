@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { createChannel } from '../../../shared/lib/matrix/client';
+import { createChannel } from '../../../shared/lib/matrix';
 import styles from '../CreateChatModal.module.css';
 
 interface ChannelFormProps {

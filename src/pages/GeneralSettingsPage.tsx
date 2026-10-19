@@ -4,7 +4,7 @@ import {
     getClient,
     setDisplayName as saveDisplayName,
     setAvatar,
-} from '../shared/lib/matrix/client';
+} from '../shared/lib/matrix';
 import styles from './GeneralSettingsPage.module.css';
 
 const AVATAR_SIZE = 72;

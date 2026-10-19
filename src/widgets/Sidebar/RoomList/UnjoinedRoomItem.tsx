@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getClient, joinRoom } from '../../../shared/lib/matrix/client';
+import { getClient, joinRoom } from '../../../shared/lib/matrix';
 import styles from './UnjoinedRoomItem.module.css';
 
 interface Props {

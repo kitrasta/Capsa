@@ -8,7 +8,7 @@ import {
     SlidersHorizontal,
     X,
 } from 'lucide-react';
-import { logout } from '../../shared/lib/matrix/client';
+import { matrixLifecycle } from '../../shared/lib/matrix';
 
 interface Section {
     id: string;
@@ -31,7 +31,7 @@ const SettingsMenu = () => {
     // перенесено из SettingsPage как есть
     const handleLogout = async () => {
         try {
-            await logout();
+            await matrixLifecycle.logout();
         } catch {
             // ошибку не показываем — юзер уже вышел локально
         }

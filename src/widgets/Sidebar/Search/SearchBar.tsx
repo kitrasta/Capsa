@@ -3,7 +3,7 @@ import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
 import { Search } from 'lucide-react';
 import RoomSearchResult from './RoomSearchResult';
 import UserSearchResult from './UserSearchResult';
-import type { UserSearchResult as UserResult } from '../../../shared/lib/matrix/client';
+import type { UserSearchResult as UserResult } from '../../../shared/lib/matrix';
 
 interface Props {
     searchTerm: string;

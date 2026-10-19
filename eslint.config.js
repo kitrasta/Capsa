@@ -19,4 +19,23 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // FSD-граница matrix-слоя: снаружи импортируем только публичный API
+    // (src/shared/lib/matrix/index.ts), а не внутренние модули слоя
+    files: ['src/**/*.{ts,tsx}', '!src/shared/lib/matrix/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/matrix/*'],
+              message:
+                'Импортируй matrix-слой только через публичный API: .../shared/lib/matrix',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ])

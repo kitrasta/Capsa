@@ -1,7 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useSyncExternalStore } from 'react';
-import { getSession } from '../../shared/lib/matrix/session';
-import { matrixLifecycle } from '../../shared/lib/matrix/client';
+import { getSession, matrixLifecycle } from '../../shared/lib/matrix';
 
 // Единственное место, где UI реагирует на lifecycle Matrix-клиента.
 // При M_UNKNOWN_TOKEN менеджер сам останавливает клиент, чистит session keys

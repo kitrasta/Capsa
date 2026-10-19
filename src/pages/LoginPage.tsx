@@ -1,8 +1,13 @@
 import style from './LoginPage.module.css';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { loginUser, validateLoginResponse } from '../shared/lib/matrix/client';
-import { saveSession, getSession, clearSession } from '../shared/lib/matrix/session';
+import {
+    loginUser,
+    validateLoginResponse,
+    saveSession,
+    getSession,
+    clearSession,
+} from '../shared/lib/matrix';
 
 const LoginPage = () => {
     const savedSession = getSession();

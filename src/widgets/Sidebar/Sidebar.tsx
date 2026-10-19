@@ -11,9 +11,9 @@ import {
     searchUsers,
     joinRoom,
     createDirectChat,
-} from '../../shared/lib/matrix/client';
+} from '../../shared/lib/matrix';
 import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
-import type { UserSearchResult } from '../../shared/lib/matrix/client';
+import type { UserSearchResult } from '../../shared/lib/matrix';
 
 const Sidebar = () => {
     const { pathname } = useLocation();

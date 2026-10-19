@@ -1,7 +1,7 @@
 import styles from './RoomListItem.module.css';
 import type { Room } from 'matrix-js-sdk';
 import { NotificationCountType } from 'matrix-js-sdk';
-import { getClient } from '../../../shared/lib/matrix/client';
+import { getClient } from '../../../shared/lib/matrix';
 import { Avatar } from '../../../shared/ui/Avatar';
 
 interface Props {
