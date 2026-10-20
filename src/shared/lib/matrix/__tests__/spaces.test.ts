@@ -17,11 +17,12 @@ import type { IHierarchyRoom } from 'matrix-js-sdk/lib/@types/spaces';
 
 const SPACE_ID = '!space:example.org';
 
+// helper: подставляет только нужные поля, остальные обязательные поля
+// IPublicChunksRoom тесту не важны — кастуем к IHierarchyRoom.
+// name/avatar_url по умолчанию НЕ кладём — как в реальном ответе, где их нет
 const hierarchyRoom = (roomId: string, extra: Record<string, unknown> = {}): IHierarchyRoom =>
     ({
         room_id: roomId,
-        name: null,
-        avatar_url: null,
         children_state: [],
         ...extra,
     }) as unknown as IHierarchyRoom;
@@ -50,7 +51,11 @@ describe('toChildSummaries', () => {
     it('отсутствующие поля → null, а не undefined', () => {
         const result = toChildSummaries(SPACE_ID, [hierarchyRoom('!a:example.org')]);
 
-        expect(result.get('!a:example.org')).toEqual({ name: null, avatarUrl: null });
+        // toStrictEqual, а не toEqual: toEqual игнорирует undefined-свойства
+        // и не поймал бы подмену null на undefined
+        expect(result.get('!a:example.org')).toStrictEqual({ name: null, avatarUrl: null });
+        expect(result.get('!a:example.org')?.name).toBeNull();
+        expect(result.get('!a:example.org')?.avatarUrl).toBeNull();
     });
 
     it('пустой список комнат → пустая карта', () => {

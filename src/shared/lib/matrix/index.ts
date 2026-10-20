@@ -48,6 +48,6 @@ export { setDisplayName, setAvatar } from './api/profile';
 // разовая очистка крипто-базы старого формата при старте
 export { cleanupLegacyCryptoStore } from './crypto';
 
-// классификатор ошибок — ровно то, чем пользуется UI:
-// 404 от hierarchy → тихое «нет доступа» вместо console.error
-export { isNotFoundError } from './errors';
+// Классификатор ошибок (errors.ts) наружу не экспортируется: сейчас им
+// пользуется только lifecycle внутри слоя — добавим в API, когда UI начнёт
+// различать ошибки сам (как было с isNotFoundError до иерархии пространств).
