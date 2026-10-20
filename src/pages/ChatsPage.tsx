@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import ChatView from '../widgets/Chat/ChatView';
+import { ChatView } from '../widgets/Chat';
 import styles from './ChatsPage.module.css';
 
 const ChatsPage = () => {

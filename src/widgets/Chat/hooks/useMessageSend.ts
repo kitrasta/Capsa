@@ -25,8 +25,9 @@ export const useMessageSend = (roomId: string): {
     const typing = (value: string): void => {
         const client = getClient();
         if (value.trim() === '') {
-            // поле опустело — перестаем «печатать»
-            lastTypingSentRef.current = 0;
+            // поле опустело — перестаем «печатать».
+            // -Infinity = явный сброс: следующий символ отправит typing сразу
+            lastTypingSentRef.current = -Infinity;
             client.sendTyping(roomId, false, TYPING_TIMEOUT).catch((error) => {
                 console.error('Failed to send typing state:', error);
             });

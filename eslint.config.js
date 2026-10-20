@@ -33,6 +33,11 @@ export default defineConfig([
               message:
                 'Импортируй matrix-слой только через публичный API: .../shared/lib/matrix',
             },
+            {
+              group: ['**/widgets/Chat/*'],
+              message:
+                'Импортируй виджет Chat только через его публичный API: .../widgets/Chat',
+            },
           ],
         },
       ],
