@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
-import MessageBubble, { toMessageView, type MessageView } from '../MessageBubble';
+import MessageBubble from '../MessageBubble';
+import { toMessageView, type MessageView } from '../messageView';
 import type { MatrixEvent, Room } from 'matrix-js-sdk';
 
 // без vitest-globals RTL не чистит DOM сам

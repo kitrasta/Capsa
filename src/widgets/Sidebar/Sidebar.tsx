@@ -3,7 +3,7 @@ import Navbar from './Navbar/Navbar';
 import SearchBar from './Search/SearchBar';
 import RoomList from './RoomList/RoomList';
 import CreateChatModal from '../CreateChat/CreateChatModal';
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import {
@@ -55,30 +55,32 @@ const Sidebar = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    const handleSearchChange = (value: string) => {
+    // стабильные обработчики: без них memo результатов поиска
+    // никогда бы не пропустил ре-рендер
+    const handleSearchChange = useCallback((value: string) => {
         setSearchTerm(value);
         if (value === '') {
             setResults([]);
             setUsers([]);
         }
-    };
+    }, []);
 
-    const resetSearch = () => {
+    const resetSearch = useCallback(() => {
         setSearchTerm('');
         setResults([]);
         setUsers([]);
-    };
+    }, []);
 
-    const handleRoomClick = async (roomId: string) => {
+    const handleRoomClick = useCallback(async (roomId: string) => {
         try {
             await joinRoom(roomId);
             resetSearch();
         } catch (error) {
             console.error('Error joining room:', error);
         }
-    };
+    }, [resetSearch]);
 
-    const handleUserClick = async (userId: string) => {
+    const handleUserClick = useCallback(async (userId: string) => {
         try {
             const roomId = await createDirectChat(userId);
             resetSearch();
@@ -86,7 +88,7 @@ const Sidebar = () => {
         } catch (error) {
             console.error('Error creating direct chat:', error);
         }
-    };
+    }, [resetSearch, navigate]);
 
     return (
         <div className={styles.wrapper}>

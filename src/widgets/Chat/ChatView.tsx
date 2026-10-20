@@ -9,7 +9,8 @@ import { useAutoLoadHistory } from './hooks/useAutoLoadHistory';
 import { useMessageSend } from './hooks/useMessageSend';
 import { useMarkRead } from './hooks/useMarkRead';
 import { Avatar } from '../../shared/ui/Avatar';
-import MessageBubble, { toMessageView } from './MessageBubble';
+import MessageBubble from './MessageBubble';
+import { toMessageView } from './messageView';
 import { SCROLL_LOAD_THRESHOLD } from './constants';
 import styles from './ChatView.module.css';
 

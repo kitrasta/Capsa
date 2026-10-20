@@ -78,3 +78,19 @@
 .room:active .lastMessage {
     color: var(--c-bg);
 }
+
+/* аватар комнаты: картинка или заглушка с первой буквой имени */
+.avatar {
+    flex-shrink: 0;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.avatarFallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--c-bg-soft);
+    color: var(--c-text-2);
+    font-size: 18px;
+}

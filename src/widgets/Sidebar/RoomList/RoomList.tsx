@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import { Room, ClientEvent, RoomEvent, RoomStateEvent, SyncState, MatrixEventEvent } from 'matrix-js-sdk';
 import { getClient, getSpaceChildSummaries } from '../../../shared/lib/matrix';
 import { useLocation, useNavigate } from 'react-router-dom';
-import RoomListItem from './RoomListItem';
+import RoomListItemContainer from './RoomListItemContainer';
 import UnjoinedRoomItem from './UnjoinedRoomItem';
 
 const COLLAPSED_SPACES_KEY = 'capsa.collapsed-spaces';
@@ -255,7 +255,9 @@ const RoomList = () => {
         };
     }, [groups]);
 
-    const handleToggleSpace = (spaceId: string) => {
+    // стабильные обработчики: memo детей (RoomListItemContainer) пропускает
+    // ре-рендеры, только если их пропсы не изменились
+    const handleToggleSpace = useCallback((spaceId: string) => {
         setCollapsedSpaces((prev) => {
             const next = new Set(prev);
             if (next.has(spaceId)) {
@@ -266,16 +268,16 @@ const RoomList = () => {
             writeCollapsed(next);
             return next;
         });
-    };
+    }, []);
 
-    const handleRoomClick = (roomId: string) => {
+    const handleRoomClick = useCallback((roomId: string) => {
         navigate(`/chats/${encodeURIComponent(roomId)}`);
-    };
+    }, [navigate]);
 
     return (
         <div className={styles.rooms}>
             {flat.map((room) => (
-                <RoomListItem
+                <RoomListItemContainer
                     key={room.roomId}
                     room={room}
                     active={room.roomId === activeRoomId}
@@ -308,7 +310,7 @@ const RoomList = () => {
                             children.map((entry) => {
                                 if (entry.kind === 'joined') {
                                     return (
-                                        <RoomListItem
+                                        <RoomListItemContainer
                                             key={entry.room.roomId}
                                             room={entry.room}
                                             active={entry.room.roomId === activeRoomId}

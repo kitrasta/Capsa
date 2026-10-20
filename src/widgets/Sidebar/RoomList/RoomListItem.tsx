@@ -1,108 +1,62 @@
+import { memo } from 'react';
 import styles from './RoomListItem.module.css';
-import type { Room } from 'matrix-js-sdk';
-import { NotificationCountType } from 'matrix-js-sdk';
-import { getClient } from '../../../shared/lib/matrix';
-import { Avatar } from '../../../shared/ui/Avatar';
+import type { RoomListItemView } from './hooks/useRoomListItem';
 
-interface Props {
-    room: Room;
-    active?: boolean;
-    onClick: (roomId: string) => void;
+export interface Props extends RoomListItemView {
+    // скачанный аватар (object URL): даёт useRoomListItemAvatar снаружи,
+    // чтобы компонент остался чистовым — без эффектов и SDK-объектов
+    avatarSrc: string | null;
 }
 
 const AVATAR_SIZE = 40;
 
-interface LastMessagePreview {
-    senderId: string;
-    senderName: string;
-    text: string;
-}
-
-const getLastMessagePreview = (room: Room): LastMessagePreview | null => {
-    const event = room.getLastLiveEvent();
-    if (!event) return null;
-
-    const senderId = event.getSender() ?? '';
-    const senderName = room.currentState.getMember(senderId)?.name ?? senderId;
-
-    // зашифрованное событие до расшифровки (расшифруется асинхронно)
-    if (event.getType() === 'm.room.encrypted') {
-        return { senderId, senderName, text: '🔒 Зашифрованное сообщение' };
-    }
-
-    if (event.getType() === 'm.room.message') {
-        const body = event.getContent<{ body?: string }>().body;
-        if (!body) return null;
-        return { senderId, senderName, text: body };
-    }
-
-    if (event.getType() === 'm.room.member') {
-        return { senderId, senderName, text: 'обновил(а) профиль' };
-    }
-
-    return null;
-};
-
-const getUnreadCount = (room: Room): number => {
-    const myUserId = getClient().getUserId();
-    if (!myUserId) return 0;
-
-    // локальный честный подсчёт: всё, что в live-ленте после
-    // нашего read receipt'а, кроме своих сообщений
-    const events = room.getLiveTimeline().getEvents();
-    const receiptEventId = room.getEventReadUpTo(myUserId, true);
-    const receiptIndex = receiptEventId
-        ? events.findIndex((e) => e.getId() === receiptEventId)
-        : -1;
-
-    // receipt вне live-ленты (давно не читал) или его нет —
-    // локально не сосчитать, доверяем серверному счётчику
-    if (receiptIndex === -1) {
-        return room.getRoomUnreadNotificationCount(NotificationCountType.Total) ?? 0;
-    }
-
-    return events
-        .slice(receiptIndex + 1)
-        .filter(
-            (e) => e.getType() === 'm.room.message' && e.getSender() !== myUserId,
-        )
-        .length;
-};
-
-const RoomListItem = ({ room, active = false, onClick }: Props) => {
-    const lastMessage = getLastMessagePreview(room);
-    const isMe = lastMessage?.senderId === getClient().getUserId();
-    const unread = getUnreadCount(room);
-    const hasUnread = unread > 0;
-
-    return (
-        <div
-            className={`${styles.room} ${active ? styles.active : ''}`}
-            onClick={() => onClick(room.roomId)}
-        >
-            <Avatar room={room} size={AVATAR_SIZE} />
-
-            <div className={styles.info}>
-                <div className={`${styles.name} ${hasUnread ? styles.nameUnread : ''}`}>
-                    {room.name}
-                </div>
-                {lastMessage && (
-                    <div className={styles.lastMessage}>
-                        <span className={styles.sender}>
-                            {isMe ? 'Вы' : lastMessage.senderName}:
-                        </span>{' '}
-                        <span className={styles.text}>{lastMessage.text}</span>
-                    </div>
-                )}
+// Чистовой компонент одного элемента списка комнат: на вход — только снимок
+// данных (RoomListItemView). React.memo пропускает ре-рендеры, пока снимок
+// не изменился; обновления приходят из useRoomListItem (подписка на комнату).
+const RoomListItem = memo(({ roomId, name, avatarSrc, lastMessage, unread, hasUnread, isMe, isActive, onClick }: Props) => (
+    <div
+        className={`${styles.room} ${isActive ? styles.active : ''}`}
+        onClick={() => onClick(roomId)}
+    >
+        {avatarSrc ? (
+            <img
+                className={styles.avatar}
+                src={avatarSrc}
+                alt={name}
+                width={AVATAR_SIZE}
+                height={AVATAR_SIZE}
+            />
+        ) : (
+            <div
+                className={`${styles.avatar} ${styles.avatarFallback}`}
+                style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
+            >
+                {(name || '?').charAt(0).toUpperCase()}
             </div>
+        )}
 
-            {hasUnread && (
-                <span className={styles.badge}>
-                    {unread > 99 ? '99+' : unread}
-                </span>
+        <div className={styles.info}>
+            <div className={`${styles.name} ${hasUnread ? styles.nameUnread : ''}`}>
+                {name}
+            </div>
+            {lastMessage && (
+                <div className={styles.lastMessage}>
+                    <span className={styles.sender}>
+                        {isMe ? 'Вы' : lastMessage.senderName}:
+                    </span>{' '}
+                    <span className={styles.text}>{lastMessage.text}</span>
+                </div>
             )}
         </div>
-    );
-};
+
+        {hasUnread && (
+            <span className={styles.badge}>
+                {unread > 99 ? '99+' : unread}
+            </span>
+        )}
+    </div>
+));
+
+RoomListItem.displayName = 'RoomListItem';
 
 export default RoomListItem;

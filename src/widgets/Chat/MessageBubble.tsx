@@ -1,52 +1,17 @@
+// Чистовой (презентационный) компонент пузыря сообщения: на вход — только
+// видимые данные (MessageView), никаких SDK-объектов. React.memo сравнивает
+// их поверхностно и пропускает ре-рендеры всех, кроме изменившегося пузыря.
+// Данные собирает toMessageView (messageView.ts).
 import DOMPurify from 'dompurify';
 import { memo, useMemo } from 'react';
-import type { MatrixEvent, Room } from 'matrix-js-sdk';
-import { EventStatus } from 'matrix-js-sdk';
+import type { MessageView } from './messageView';
 import styles from './MessageBubble.module.css';
-
-// Чистовой (презентационный) компонент: на вход — только видимые данные,
-// никаких SDK-объектов. MatrixEvent мутирует (расшифровка, статус отправки)
-// при неизменном identity — memo по объекту события ничего бы не заметил,
-// а по снимку данных пропускает ре-рендеры всех, кроме изменившегося пузыря.
-export interface MessageView {
-    id: string;
-    body: string;
-    formattedBody: string | null;
-    senderName: string;
-    ts: number;
-    sendStatus: string | null;
-    isOwn: boolean;
-}
 
 const formatTime = (ts: number): string =>
     new Date(ts).toLocaleTimeString('ru-RU', {
         hour: '2-digit',
         minute: '2-digit',
     });
-
-// честный статус отправки своего сообщения
-const getSendStatus = (event: MatrixEvent): string | null => {
-    const status = event.status;
-
-    if (status === EventStatus.SENDING || status === EventStatus.QUEUED || status === EventStatus.ENCRYPTING) {
-        return '🕓'; // еще не ушли на сервер
-    }
-    if (status === EventStatus.SENT) {
-        return '✓'; // сервер принял, эхо еще не пришло
-    }
-    if (status === EventStatus.NOT_SENT || status === EventStatus.CANCELLED) {
-        return '⚠'; // ошибка отправки
-    }
-    return null; // подтверждено сервером (обычное событие из sync)
-};
-
-// сообщение могло быть отправлено с форматированием (org.matrix.custom.html)
-const getFormattedBody = (event: MatrixEvent): string | null => {
-    if (event.getContent<{ format?: string }>().format !== 'org.matrix.custom.html') {
-        return null;
-    }
-    return event.getContent<{ formatted_body?: string }>().formatted_body ?? null;
-};
 
 // чужой HTML нельзя рендерить напрямую (XSS):
 // только после санитайзинга, с минимальным набором тегов
@@ -63,26 +28,6 @@ const sanitizeHtml = (html: string): string =>
         // ссылки — только http(s) и matrix-схемы
         ALLOWED_URI_REGEXP: /^(?:https?:\/\/|mailto:|matrix:)/i,
     });
-
-// снимок видимых данных события на момент рендера.
-// Вызывается в родителе на каждый рендер ленты — это дёшево (чтение полей),
-// а тяжёлый рендер пузыря memo пропускает, пока снимок не изменился.
-export const toMessageView = (
-    event: MatrixEvent,
-    room: Room,
-    isOwn: boolean,
-): MessageView => {
-    const senderId = event.getSender() ?? '';
-    return {
-        id: event.getId() ?? '',
-        body: event.getContent<{ body?: string }>().body ?? '',
-        formattedBody: getFormattedBody(event),
-        senderName: room.currentState.getMember(senderId)?.name ?? senderId,
-        ts: event.getTs(),
-        sendStatus: isOwn ? getSendStatus(event) : null,
-        isOwn,
-    };
-};
 
 const MessageBubble = memo(({ body, formattedBody, senderName, ts, sendStatus, isOwn }: MessageView) => {
     // санитайзинг — дорогой (парсинг DOM): гоняем только когда

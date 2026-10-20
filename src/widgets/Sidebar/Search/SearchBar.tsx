@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import styles from './SearchBar.module.css';
 import type { IPublicRoomsChunkRoom } from 'matrix-js-sdk';
 import { Search } from 'lucide-react';
@@ -15,7 +16,7 @@ interface Props {
     onUserClick: (userId: string) => void;
 }
 
-const SearchBar = ({
+const SearchBar = memo(({
     searchTerm,
     onSearchTermChange,
     results,
@@ -52,7 +53,7 @@ const SearchBar = ({
                             key={user.userId}
                             userId={user.userId}
                             displayName={user.displayName}
-                            onClick={() => onUserClick(user.userId)}
+                            onClick={onUserClick}
                         />
                     ))}
                 </div>
@@ -64,9 +65,10 @@ const SearchBar = ({
                     {results.map((room) => (
                         <RoomSearchResult
                             key={room.room_id}
+                            roomId={room.room_id}
                             name={room.name ?? room.room_id}
                             membersCount={room.num_joined_members}
-                            onClick={() => onRoomClick(room.room_id)}
+                            onClick={onRoomClick}
                         />
                     ))}
                 </div>
@@ -77,6 +79,8 @@ const SearchBar = ({
             )}
         </div>
     );
-};
+});
+
+SearchBar.displayName = 'SearchBar';
 
 export default SearchBar;
