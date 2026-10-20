@@ -6,6 +6,8 @@ export interface Props extends RoomListItemView {
     // скачанный аватар (object URL): даёт useRoomListItemAvatar снаружи,
     // чтобы компонент остался чистовым — без эффектов и SDK-объектов
     avatarSrc: string | null;
+    isActive: boolean;
+    onClick: (roomId: string) => void;
 }
 
 const AVATAR_SIZE = 40;

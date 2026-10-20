@@ -17,10 +17,19 @@ const AVATAR_SIZE = 40;
 // memo по {room, active, onClick}: identity комнаты стабилен, а обновления
 // приходят через подписку useRoomListItem — родительский рендер не нужен.
 const RoomListItemContainer = memo(({ room, active = false, onClick }: Props) => {
-    const view = useRoomListItem(room, onClick, active);
+    // view — только данные; onClick/isActive идут явными пропсами,
+    // чтобы у каждого значения был один источник
+    const view = useRoomListItem(room);
     const avatarSrc = useRoomListItemAvatar(view.avatarUrl, AVATAR_SIZE);
 
-    return <RoomListItem {...view} avatarSrc={avatarSrc} />;
+    return (
+        <RoomListItem
+            {...view}
+            avatarSrc={avatarSrc}
+            isActive={active}
+            onClick={onClick}
+        />
+    );
 });
 
 RoomListItemContainer.displayName = 'RoomListItemContainer';

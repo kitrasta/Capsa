@@ -68,7 +68,7 @@ const setup = (opts: {
         ...emitter(roomHandlers),
     };
 
-    const hook = renderHook(() => useRoomListItem(room as never, () => {}, true));
+    const hook = renderHook(() => useRoomListItem(room as never));
     const emit = (map: Map<string, Set<Handler>>, event: string, ...args: unknown[]) =>
         act(() => {
             map.get(event)?.forEach((cb) => cb(...args));
@@ -127,6 +127,17 @@ describe('useRoomListItem: непрочитанные', () => {
 
         expect(hook.result.current.unread).toBe(3);
         expect(hook.result.current.hasUnread).toBe(true);
+        expect(getEventReadUpTo).not.toHaveBeenCalled();
+    });
+
+    it('серверный счётчик 0 — валидный результат, fallback не нужен', () => {
+        const { hook, getEventReadUpTo } = setup({
+            serverUnread: 0,
+            events: [makeEvent('m.room.message', { body: 'a' })],
+        });
+
+        expect(hook.result.current.unread).toBe(0);
+        expect(hook.result.current.hasUnread).toBe(false);
         expect(getEventReadUpTo).not.toHaveBeenCalled();
     });
 

@@ -26,9 +26,6 @@ export interface RoomListItemView {
     unread: number;
     hasUnread: boolean;
     isMe: boolean;
-    // проброс аргументов хука — компонент получает всё одним объектом
-    isActive: boolean;
-    onClick: (roomId: string) => void;
 }
 
 // превью последнего события комнаты
@@ -111,11 +108,7 @@ const useRoomDataVersion = (room: Room): number => {
     return version;
 };
 
-export const useRoomListItem = (
-    room: Room,
-    onClick: (roomId: string) => void,
-    isActive: boolean,
-): RoomListItemView => {
+export const useRoomListItem = (room: Room): RoomListItemView => {
     const version = useRoomDataVersion(room);
     const myUserId = getClient().getUserId();
 
@@ -124,18 +117,20 @@ export const useRoomListItem = (
         return getLastMessagePreview(room);
     }, [room, version]);
 
-    // серверный счётчик O(1) — приходит из sync; локальный — только fallback
+    // серверный счётчик O(1) из sync; 0 — валидный результат.
+    // Счётчик отсутствует (null/undefined на практике, хотя .d.ts обещает
+    // number) — тогда считаем локально
     const serverUnread = room.getRoomUnreadNotificationCount(NotificationCountType.Total);
-    const needLocalCount = serverUnread == null;
+    const hasServerCount = typeof serverUnread === 'number';
 
+    // дорогой локальный подсчёт — только fallback; не запускаем вовсе,
+    // пока есть серверный счётчик, и мемоизируем по событиям комнаты
     const localUnread = useMemo(() => {
         void version; // пересчёт при изменениях комнаты
-        // дорогой подсчёт не запускаем вовсе, пока есть серверный счётчик
-        if (!needLocalCount) return 0;
-        return getLocalUnreadCount(room, myUserId);
-    }, [room, myUserId, version, needLocalCount]);
+        return hasServerCount ? 0 : getLocalUnreadCount(room, myUserId);
+    }, [room, myUserId, version, hasServerCount]);
 
-    const unread = serverUnread ?? localUnread;
+    const unread = hasServerCount ? serverUnread : localUnread;
 
     return {
         roomId: room.roomId,
@@ -145,7 +140,5 @@ export const useRoomListItem = (
         unread,
         hasUnread: unread > 0,
         isMe: lastMessage?.senderId === myUserId,
-        isActive,
-        onClick,
     };
 };
