@@ -1,6 +1,9 @@
-// Пространства (spaces): создание, добавление комнат, информация о детях.
+// Пространства (spaces): создание, добавление комнат, иерархия детей.
 import { EventType } from 'matrix-js-sdk';
 import { RoomType } from 'matrix-js-sdk';
+// IHierarchyRoom из корня matrix-js-sdk не экспортируется (там он переименован
+// в HierarchyRoom) — берём из типа SDK напрямую, имя сохраняем каноничным
+import type { IHierarchyRoom } from 'matrix-js-sdk/lib/@types/spaces';
 import { getClient, MATRIX_HOMESERVER_URL } from '../client';
 
 export const createSpace = async (name: string): Promise<string> => {
@@ -24,19 +27,33 @@ export const addRoomToSpace = async (
     await client.sendStateEvent(spaceId, EventType.SpaceChild, { via }, roomId);
 };
 
-export interface SpaceChildInfo {
-    roomId: string;
+export interface ChildSummary {
     name: string | null;
     avatarUrl: string | null;
-    joined: boolean;
 }
 
-// summary не-joined ребёнка пространства: имя/аватар с сервера
-export const getRoomSummary = async (
-    roomId: string,
-    via: string[],
-): Promise<{ name: string | null; avatar_url: string | null }> => {
-    const client = getClient();
-    const summary = await client.getRoomSummary(roomId, via);
-    return { name: summary.name ?? null, avatar_url: summary.avatar_url ?? null };
+// чистая функция: ответ hierarchy → roomId → данные.
+// Первым элементом сервер возвращает само пространство — его отбрасываем
+export const toChildSummaries = (
+    spaceId: string,
+    rooms: IHierarchyRoom[],
+): Map<string, ChildSummary> => {
+    const result = new Map<string, ChildSummary>();
+    for (const room of rooms) {
+        if (room.room_id === spaceId) continue;
+        result.set(room.room_id, {
+            name: room.name ?? null,
+            avatarUrl: room.avatar_url ?? null,
+        });
+    }
+    return result;
+};
+
+// один запрос на пространство; maxDepth = 1 — вложенные пространства
+// мы и так не показываем
+export const getSpaceChildSummaries = async (
+    spaceId: string,
+): Promise<Map<string, ChildSummary>> => {
+    const { rooms } = await getClient().getRoomHierarchy(spaceId, 50, 1);
+    return toChildSummaries(spaceId, rooms);
 };

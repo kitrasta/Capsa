@@ -37,12 +37,17 @@ export {
     createChannel,
 } from './api/rooms';
 export { searchUsers, type UserSearchResult } from './api/users';
-export { createSpace, addRoomToSpace, getRoomSummary } from './api/spaces';
+export {
+    createSpace,
+    addRoomToSpace,
+    getSpaceChildSummaries,
+    type ChildSummary,
+} from './api/spaces';
 export { setDisplayName, setAvatar } from './api/profile';
 
 // разовая очистка крипто-базы старого формата при старте
 export { cleanupLegacyCryptoStore } from './crypto';
 
 // классификатор ошибок — ровно то, чем пользуется UI:
-// 404 от summary → тихое «нет доступа» вместо console.error
+// 404 от hierarchy → тихое «нет доступа» вместо console.error
 export { isNotFoundError } from './errors';

@@ -2,7 +2,7 @@ import styles from './RoomList.module.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Room, ClientEvent, RoomEvent, RoomStateEvent, SyncState, MatrixEventEvent } from 'matrix-js-sdk';
-import { getClient, getRoomSummary, isNotFoundError } from '../../../shared/lib/matrix';
+import { getClient, getSpaceChildSummaries, isNotFoundError } from '../../../shared/lib/matrix';
 import { useLocation, useNavigate } from 'react-router-dom';
 import RoomListItem from './RoomListItem';
 import UnjoinedRoomItem from './UnjoinedRoomItem';
@@ -29,6 +29,28 @@ interface UnjoinedChild {
     order: string;
     via: string[];
 }
+
+// данные не-joined ребёнка для списка: имя/аватар из hierarchy либо «нет доступа»
+interface UnjoinedSummary {
+    name: string | null;
+    avatarUrl: string | null;
+    noAccess?: boolean;
+}
+
+// отметить детей пространства их summary, не трогая уже заполненные записи.
+// Нет в ответе hierarchy — сервер её не показывает → «нет доступа»
+const fillSummaries = (
+    prev: Record<string, UnjoinedSummary>,
+    missing: UnjoinedChild[],
+    summaryOf: (roomId: string) => UnjoinedSummary,
+): Record<string, UnjoinedSummary> => {
+    const next = { ...prev };
+    for (const child of missing) {
+        if (child.roomId in next) continue;
+        next[child.roomId] = summaryOf(child.roomId);
+    }
+    return next;
+};
 
 // единый список детей пространства в порядке order:
 // типы элементов различаются — joined и не-joined
@@ -200,45 +222,52 @@ const RoomList = () => {
     // распределяем: плоский список + секции-пространства
     const { flat, groups } = useMemo(() => groupBySpaces(myRooms), [myRooms]);
 
-    // summary не-joined детей: roomId → данные либо «нет доступа» (404 от сервера)
-    const [summaries, setSummaries] = useState<
-        Record<string, { name: string | null; avatarUrl: string | null; noAccess?: boolean }>
-    >({});
+    // summary не-joined детей: roomId → имя/аватар из hierarchy либо «нет доступа»
+    const [summaries, setSummaries] = useState<Record<string, UnjoinedSummary>>({});
 
-    const unjoinedChildren = useMemo(
-        () => groups.flatMap((group) => group.unjoinedChildren),
-        [groups],
-    );
-
-    // грузим summary для не-joined детей; каждый roomId — не больше одного запроса
-    const fetchedSummariesRef = useRef<Set<string>>(new Set());
+    // один запрос на пространство (getRoomHierarchy) вместо запроса на каждую
+    // комнату; in-flight защита от повторных запросов при перерисовках
+    const inFlightSpacesRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
-        for (const child of unjoinedChildren) {
-            if (fetchedSummariesRef.current.has(child.roomId)) continue;
-            fetchedSummariesRef.current.add(child.roomId);
+        for (const { space, unjoinedChildren } of groups) {
+            // дети пространства, которые ещё не получили данных
+            const missing = unjoinedChildren.filter((child) => !(child.roomId in summaries));
+            if (missing.length === 0 || inFlightSpacesRef.current.has(space.roomId)) continue;
+            inFlightSpacesRef.current.add(space.roomId);
 
-            getRoomSummary(child.roomId, child.via)
-                .then(({ name, avatar_url }) => {
-                    setSummaries((prev) => ({
-                        ...prev,
-                        [child.roomId]: { name, avatarUrl: avatar_url },
-                    }));
+            getSpaceChildSummaries(space.roomId)
+                .then((children) => {
+                    // есть в hierarchy → имя/аватар; нет → сервер её не показывает
+                    setSummaries((prev) =>
+                        fillSummaries(prev, missing, (roomId) => {
+                            const summary = children.get(roomId);
+                            return summary
+                                ? { name: summary.name, avatarUrl: summary.avatarUrl }
+                                : { name: null, avatarUrl: null, noAccess: true };
+                        }),
+                    );
                 })
                 .catch((error: unknown) => {
-                    // 404 от summary — комнату не видно с нашего аккаунта:
+                    // 404 на hierarchy — сервер не показывает пространство целиком:
                     // это штатный случай, тихо показываем «нет доступа»
                     if (isNotFoundError(error)) {
-                        setSummaries((prev) => ({
-                            ...prev,
-                            [child.roomId]: { name: null, avatarUrl: null, noAccess: true },
-                        }));
+                        setSummaries((prev) =>
+                            fillSummaries(prev, missing, () => ({
+                                name: null,
+                                avatarUrl: null,
+                                noAccess: true,
+                            })),
+                        );
                         return;
                     }
-                    console.error('Failed to load room summary:', error);
+                    console.error('Failed to load space hierarchy:', error);
+                })
+                .finally(() => {
+                    inFlightSpacesRef.current.delete(space.roomId);
                 });
         }
-    }, [unjoinedChildren]);
+    }, [groups, summaries]);
 
     const handleToggleSpace = (spaceId: string) => {
         setCollapsedSpaces((prev) => {
