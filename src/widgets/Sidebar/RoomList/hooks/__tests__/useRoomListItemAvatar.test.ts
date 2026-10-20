@@ -41,6 +41,9 @@ describe('useRoomListItemAvatar', () => {
         const { result } = renderHook(() => useRoomListItemAvatar('mxc://hs/avatar', 40));
 
         await waitFor(() => expect(result.current).toBe('blob:avatar'));
+        // инвариант: один mxc — ровно один fetch и один object URL
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(createObjectURL).toHaveBeenCalledTimes(1);
         expect(mxcUrlToHttp).toHaveBeenCalledWith('mxc://hs/avatar', 40, 40, 'crop', false, false, true);
         expect(fetchMock).toHaveBeenCalledWith(
             'https://hs/_matrix/media/r0/download/hs/avatar',
