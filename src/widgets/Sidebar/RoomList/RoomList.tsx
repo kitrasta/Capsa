@@ -2,7 +2,7 @@ import styles from './RoomList.module.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Room, ClientEvent, RoomEvent, RoomStateEvent, SyncState, MatrixEventEvent } from 'matrix-js-sdk';
-import { getClient, getRoomSummary } from '../../../shared/lib/matrix';
+import { getClient, getRoomSummary, isNotFoundError } from '../../../shared/lib/matrix';
 import { useLocation, useNavigate } from 'react-router-dom';
 import RoomListItem from './RoomListItem';
 import UnjoinedRoomItem from './UnjoinedRoomItem';
@@ -200,9 +200,9 @@ const RoomList = () => {
     // распределяем: плоский список + секции-пространства
     const { flat, groups } = useMemo(() => groupBySpaces(myRooms), [myRooms]);
 
-    // summary не-joined детей: roomId → {name, avatarUrl}
+    // summary не-joined детей: roomId → данные либо «нет доступа» (404 от сервера)
     const [summaries, setSummaries] = useState<
-        Record<string, { name: string | null; avatarUrl: string | null }>
+        Record<string, { name: string | null; avatarUrl: string | null; noAccess?: boolean }>
     >({});
 
     const unjoinedChildren = useMemo(
@@ -225,7 +225,16 @@ const RoomList = () => {
                         [child.roomId]: { name, avatarUrl: avatar_url },
                     }));
                 })
-                .catch((error) => {
+                .catch((error: unknown) => {
+                    // 404 от summary — комнату не видно с нашего аккаунта:
+                    // это штатный случай, тихо показываем «нет доступа»
+                    if (isNotFoundError(error)) {
+                        setSummaries((prev) => ({
+                            ...prev,
+                            [child.roomId]: { name: null, avatarUrl: null, noAccess: true },
+                        }));
+                        return;
+                    }
                     console.error('Failed to load room summary:', error);
                 });
         }
@@ -300,6 +309,7 @@ const RoomList = () => {
                                         roomId={entry.child.roomId}
                                         name={summary?.name ?? null}
                                         avatarUrl={summary?.avatarUrl ?? null}
+                                        noAccess={summary?.noAccess ?? false}
                                     />
                                 );
                             })}

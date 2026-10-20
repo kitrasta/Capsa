@@ -8,12 +8,17 @@ interface Props {
     roomId: string;
     name: string | null;
     avatarUrl: string | null;
+    // сервер ответил 404 на summary — комнату не видно с нашего аккаунта
+    noAccess?: boolean;
 }
 
 const AVATAR_SIZE = 40;
 
 // имя-плейсхолдер до загрузки summary: короткая форма roomId до ':'
 const placeholderName = (roomId: string): string => roomId.split(':')[0];
+
+// тихий плейсхолдер вместо имени: комнаты без доступа не показываем как имена
+const NO_ACCESS_LABEL = 'нет доступа';
 
 // аватар из summary (mxc) — скачиваем с авторизацией (MSC3912)
 const useAvatarObjectUrl = (mxcUrl: string | null): string | null => {
@@ -71,12 +76,12 @@ const useAvatarObjectUrl = (mxcUrl: string | null): string | null => {
 };
 
 // ребёнок пространства, в который мы ещё не вступили
-const UnjoinedRoomItem = ({ roomId, name, avatarUrl }: Props) => {
+const UnjoinedRoomItem = ({ roomId, name, avatarUrl, noAccess = false }: Props) => {
     const navigate = useNavigate();
     const [isJoining, setIsJoining] = useState(false);
-    const fetchedAvatarUrl = useAvatarObjectUrl(avatarUrl);
+    const fetchedAvatarUrl = useAvatarObjectUrl(noAccess ? null : avatarUrl);
 
-    const displayName = name ?? placeholderName(roomId);
+    const displayName = noAccess ? NO_ACCESS_LABEL : (name ?? placeholderName(roomId));
 
     const handleClick = async () => {
         if (isJoining) return;
@@ -112,7 +117,7 @@ const UnjoinedRoomItem = ({ roomId, name, avatarUrl }: Props) => {
                 </div>
             )}
 
-            <div className={styles.name}>
+            <div className={noAccess ? `${styles.name} ${styles.muted}` : styles.name}>
                 {isJoining ? (
                     <Loader2 className={styles.spinner} size={18} />
                 ) : (
