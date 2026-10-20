@@ -1,12 +1,20 @@
 import DOMPurify from 'dompurify';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import type { MatrixEvent, Room } from 'matrix-js-sdk';
 import { EventStatus } from 'matrix-js-sdk';
 import styles from './MessageBubble.module.css';
 
-interface Props {
-    event: MatrixEvent;
-    room: Room;
+// Чистовой (презентационный) компонент: на вход — только видимые данные,
+// никаких SDK-объектов. MatrixEvent мутирует (расшифровка, статус отправки)
+// при неизменном identity — memo по объекту события ничего бы не заметил,
+// а по снимку данных пропускает ре-рендеры всех, кроме изменившегося пузыря.
+export interface MessageView {
+    id: string;
+    body: string;
+    formattedBody: string | null;
+    senderName: string;
+    ts: number;
+    sendStatus: string | null;
     isOwn: boolean;
 }
 
@@ -56,19 +64,33 @@ const sanitizeHtml = (html: string): string =>
         ALLOWED_URI_REGEXP: /^(?:https?:\/\/|mailto:|matrix:)/i,
     });
 
-const MessageBubble = ({ event, room, isOwn }: Props) => {
-    const body = event.getContent<{ body?: string }>().body ?? '';
-    const formattedBody = getFormattedBody(event);
+// снимок видимых данных события на момент рендера.
+// Вызывается в родителе на каждый рендер ленты — это дёшево (чтение полей),
+// а тяжёлый рендер пузыря memo пропускает, пока снимок не изменился.
+export const toMessageView = (
+    event: MatrixEvent,
+    room: Room,
+    isOwn: boolean,
+): MessageView => {
+    const senderId = event.getSender() ?? '';
+    return {
+        id: event.getId() ?? '',
+        body: event.getContent<{ body?: string }>().body ?? '',
+        formattedBody: getFormattedBody(event),
+        senderName: room.currentState.getMember(senderId)?.name ?? senderId,
+        ts: event.getTs(),
+        sendStatus: isOwn ? getSendStatus(event) : null,
+        isOwn,
+    };
+};
+
+const MessageBubble = memo(({ body, formattedBody, senderName, ts, sendStatus, isOwn }: MessageView) => {
     // санитайзинг — дорогой (парсинг DOM): гоняем только когда
     // меняется сам HTML, а не на каждый ре-рендер ленты
     const sanitizedHtml = useMemo(
         () => (formattedBody ? sanitizeHtml(formattedBody) : null),
         [formattedBody],
     );
-    const senderId = event.getSender() ?? '';
-    const senderName = room.currentState.getMember(senderId)?.name ?? senderId;
-    const ts = event.getTs();
-    const sendStatus = isOwn ? getSendStatus(event) : null;
 
     return (
         <div className={`${styles.message} ${isOwn ? styles.own : ''}`}>
@@ -91,6 +113,8 @@ const MessageBubble = ({ event, room, isOwn }: Props) => {
             </div>
         </div>
     );
-};
+});
+
+MessageBubble.displayName = 'MessageBubble';
 
 export default MessageBubble;

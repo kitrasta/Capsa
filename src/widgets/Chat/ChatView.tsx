@@ -9,7 +9,7 @@ import { useAutoLoadHistory } from './hooks/useAutoLoadHistory';
 import { useMessageSend } from './hooks/useMessageSend';
 import { useMarkRead } from './hooks/useMarkRead';
 import { Avatar } from '../../shared/ui/Avatar';
-import MessageBubble from './MessageBubble';
+import MessageBubble, { toMessageView } from './MessageBubble';
 import { SCROLL_LOAD_THRESHOLD } from './constants';
 import styles from './ChatView.module.css';
 
@@ -116,14 +116,12 @@ const ChatView = ({ roomId }: Props) => {
 
             <div className={styles.messages} ref={messagesRef} onScroll={handleScroll}>
                 {loading && <div className={styles.historyLoader}>Загрузка истории…</div>}
-                {messages.map((event) => (
-                    <MessageBubble
-                        key={event.getId()}
-                        event={event}
-                        room={room}
-                        isOwn={event.getSender() === client.getUserId()}
-                    />
-                ))}
+                {messages.map((event) => {
+                    // снимок видимых данных: пузырь чистовой, memo пропускает
+                    // ре-рендеры, кроме изменившихся (например, расшифрованных)
+                    const view = toMessageView(event, room, event.getSender() === client.getUserId());
+                    return <MessageBubble key={view.id} {...view} />;
+                })}
                 <div ref={bottomRef} />
             </div>
 
