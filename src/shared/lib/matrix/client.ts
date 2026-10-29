@@ -15,7 +15,33 @@ import {
 } from './storage';
 import { initCrypto, cryptoDbNamesForUser } from './crypto';
 
-export const MATRIX_HOMESERVER_URL = 'https://matrix.org';
+// Адрес client-server API своего homeserver'а и его server_name
+// (домен из Matrix ID, например example.com). Берутся из окружения —
+// см. .env.example. Ничего не хардкодим: сервер у нас свой, адрес
+// должен переезжать без переписывания кода.
+const trimTrailingSlashes = (value: string): string => value.replace(/\/+$/, '');
+
+export const MATRIX_HOMESERVER_URL = trimTrailingSlashes(
+    (import.meta.env.VITE_MATRIX_HOMESERVER_URL ?? '').trim(),
+);
+
+// server_name для via (spaces) и федерации. Если не задан явно —
+// хост из адреса API (подходит, когда делегирования нет и
+// server_name совпадает с доменом API).
+export const MATRIX_SERVER_NAME =
+    (import.meta.env.VITE_MATRIX_SERVER_NAME ?? '').trim() ||
+    (MATRIX_HOMESERVER_URL ? new URL(MATRIX_HOMESERVER_URL).hostname : '');
+
+// Явная ошибка вместо молчаливых запросов на пустой адрес:
+// без .env приложение не знает, куда ходить.
+const requireHomeserverUrl = (): string => {
+    if (!MATRIX_HOMESERVER_URL) {
+        throw new Error(
+            'Не задан VITE_MATRIX_HOMESERVER_URL: скопируй .env.example в .env и укажи адрес своего homeserver',
+        );
+    }
+    return MATRIX_HOMESERVER_URL;
+};
 
 let client: MatrixClient | null = null;
 
@@ -28,7 +54,7 @@ export const initClient = async (session: MatrixSession): Promise<MatrixClient> 
     }
     const store = await createStore();
     client = createClient({
-        baseUrl: MATRIX_HOMESERVER_URL,
+        baseUrl: requireHomeserverUrl(),
         accessToken: session.accessToken,
         userId: session.userId,
         deviceId: session.deviceId,
@@ -146,7 +172,7 @@ export const loginUser = async (
     login: string,
     password: string,
 ): Promise<MatrixLoginResponse> => {
-    const tempClient = createClient({ baseUrl: MATRIX_HOMESERVER_URL });
+    const tempClient = createClient({ baseUrl: requireHomeserverUrl() });
     return tempClient.loginRequest({  
 
         type: 'm.login.password',

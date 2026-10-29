@@ -56,7 +56,7 @@ Capsa находится в активной ранней разработке.
 ### Требования
 
 - Node.js 22+
-- Учётная запись Matrix — например, на [matrix.org](https://matrix.org/)
+- Учётная запись на вашем Matrix-homeserver'е (своём VPS)
 
 ### Установка
 
@@ -65,6 +65,22 @@ git clone https://github.com/kitrasta/Capsa.git
 cd Capsa
 npm install
 ```
+
+### Конфигурация сервера
+
+Приложение ходит на свой homeserver — адрес задаётся в `.env`
+(не коммитится, шаблон — `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+| Переменная | Что это |
+| --- | --- |
+| `VITE_MATRIX_HOMESERVER_URL` | адрес client-server API homeserver'а, например `https://matrix.example.com` |
+| `VITE_MATRIX_SERVER_NAME` | server_name (домен Matrix ID, `@user:example.com`) — нужен для spaces и федерации; если пуст, берётся хост из URL выше |
+
+Пересобирайте приложение после изменения `.env` — переменные попадают в бандл на этапе сборки.
 
 ### Режим разработки
 

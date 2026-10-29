@@ -7,7 +7,7 @@ vi.mock('matrix-js-sdk', () => ({
     RoomType: { Space: 'm.space' },
 }));
 vi.mock('../client', () => ({
-    MATRIX_HOMESERVER_URL: 'https://matrix.org',
+    MATRIX_SERVER_NAME: 'example.org',
     getClient: vi.fn(),
 }));
 

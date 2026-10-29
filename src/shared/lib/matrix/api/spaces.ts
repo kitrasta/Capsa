@@ -4,7 +4,7 @@ import { RoomType } from 'matrix-js-sdk';
 // IHierarchyRoom из корня matrix-js-sdk не экспортируется (там он переименован
 // в HierarchyRoom) — берём из типа SDK напрямую, имя сохраняем каноничным
 import type { IHierarchyRoom } from 'matrix-js-sdk/lib/@types/spaces';
-import { getClient, MATRIX_HOMESERVER_URL } from '../client';
+import { getClient, MATRIX_SERVER_NAME } from '../client';
 
 export const createSpace = async (name: string): Promise<string> => {
     const client = getClient();
@@ -22,8 +22,9 @@ export const addRoomToSpace = async (
     roomId: string,
 ): Promise<void> => {
     const client = getClient();
-    // via — серверы, через которые можно резолвить ребёнка (спека spaces)
-    const via = [new URL(MATRIX_HOMESERVER_URL).hostname];
+    // via — серверы, через которые можно резолвить ребёнка (спека spaces).
+    // Нужен server_name (домен Matrix ID), а не хост API
+    const via = [MATRIX_SERVER_NAME];
     await client.sendStateEvent(spaceId, EventType.SpaceChild, { via }, roomId);
 };
 
