@@ -10,3 +10,13 @@ export class CryptoInitError extends Error {
         this.name = 'CryptoInitError';
     }
 }
+
+// Конфигурация приложения не задана (нет VITE_MATRIX_HOMESERVER_URL).
+// Отдельный класс: UI показывает это сообщение как есть — это ошибка
+// настройки, а не неверный логин/пароль или сеть.
+export class ConfigError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'ConfigError';
+    }
+}

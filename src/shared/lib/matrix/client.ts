@@ -14,34 +14,11 @@ import {
     ROOM_STORE_DB_NAME,
 } from './storage';
 import { initCrypto, cryptoDbNamesForUser } from './crypto';
+import { requireHomeserverUrl } from './config';
 
-// Адрес client-server API своего homeserver'а и его server_name
-// (домен из Matrix ID, например example.com). Берутся из окружения —
-// см. .env.example. Ничего не хардкодим: сервер у нас свой, адрес
-// должен переезжать без переписывания кода.
-const trimTrailingSlashes = (value: string): string => value.replace(/\/+$/, '');
-
-export const MATRIX_HOMESERVER_URL = trimTrailingSlashes(
-    (import.meta.env.VITE_MATRIX_HOMESERVER_URL ?? '').trim(),
-);
-
-// server_name для via (spaces) и федерации. Если не задан явно —
-// хост из адреса API (подходит, когда делегирования нет и
-// server_name совпадает с доменом API).
-export const MATRIX_SERVER_NAME =
-    (import.meta.env.VITE_MATRIX_SERVER_NAME ?? '').trim() ||
-    (MATRIX_HOMESERVER_URL ? new URL(MATRIX_HOMESERVER_URL).hostname : '');
-
-// Явная ошибка вместо молчаливых запросов на пустой адрес:
-// без .env приложение не знает, куда ходить.
-const requireHomeserverUrl = (): string => {
-    if (!MATRIX_HOMESERVER_URL) {
-        throw new Error(
-            'Не задан VITE_MATRIX_HOMESERVER_URL: скопируй .env.example в .env и укажи адрес своего homeserver',
-        );
-    }
-    return MATRIX_HOMESERVER_URL;
-};
+// адрес homeserver'а и server_name — в config.ts (без зависимостей от SDK);
+// ре-экспорт для API-модулей (api/spaces) и обратной совместимости
+export { MATRIX_HOMESERVER_URL, MATRIX_SERVER_NAME } from './config';
 
 let client: MatrixClient | null = null;
 

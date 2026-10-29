@@ -48,6 +48,9 @@ export { setDisplayName, setAvatar } from './api/profile';
 // разовая очистка крипто-базы старого формата при старте
 export { cleanupLegacyCryptoStore } from './crypto';
 
-// Классификатор ошибок (errors.ts) наружу не экспортируется: сейчас им
-// пользуется только lifecycle внутри слоя — добавим в API, когда UI начнёт
-// различать ошибки сам (как было с isNotFoundError до иерархии пространств).
+// Классификатор ошибок (errors.ts): наружу — то, чем UI реально пользуется
+// для различения ошибок входа (конфигурация ≠ неверный пароль ≠ сеть).
+export { isForbiddenError, matrixErrorMessage } from './errors';
+
+// Типы ошибок слоя: ConfigError — конфигурация не задана
+export { ConfigError } from './error-types';

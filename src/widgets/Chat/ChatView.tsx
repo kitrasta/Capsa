@@ -10,7 +10,7 @@ import { useMessageSend } from './hooks/useMessageSend';
 import { useMarkRead } from './hooks/useMarkRead';
 import { Avatar } from '../../shared/ui/Avatar';
 import MessageBubble from './MessageBubble';
-import { toMessageView } from './messageView';
+import { toTimelineItems } from './timelineItems';
 import { SCROLL_LOAD_THRESHOLD } from './constants';
 import styles from './ChatView.module.css';
 
@@ -117,12 +117,15 @@ const ChatView = ({ roomId }: Props) => {
 
             <div className={styles.messages} ref={messagesRef} onScroll={handleScroll}>
                 {loading && <div className={styles.historyLoader}>Загрузка истории…</div>}
-                {messages.map((event) => {
-                    // снимок видимых данных: пузырь чистовой, memo пропускает
-                    // ре-рендеры, кроме изменившихся (например, расшифрованных)
-                    const view = toMessageView(event, room, event.getSender() === client.getUserId());
-                    return <MessageBubble key={view.id} {...view} />;
-                })}
+                {toTimelineItems(messages, room, client.getUserId()).map((item) =>
+                    item.kind === 'date' ? (
+                        <div key={item.id} className={styles.dateSeparator}>{item.label}</div>
+                    ) : (
+                        // снимок видимых данных: пузырь чистовой, memo пропускает
+                        // ре-рендеры, кроме изменившихся (например, расшифрованных)
+                        <MessageBubble key={item.id} {...item.view} grouped={item.grouped} />
+                    ),
+                )}
                 <div ref={bottomRef} />
             </div>
 
