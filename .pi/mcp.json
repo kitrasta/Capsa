@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "ssh-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "ssh-mcp",
+        "--host=84.200.128.131",
+        "--port=22",
+        "--user=root",
+        "--key=~/.ssh/id_ed25519",
+        "--timeout=1300000",
+        "--maxChars=none"
+      ],
+      "timeout": 300,
+      "exposure": "codemode",
+      "description": "SSH-доступ к VPS (84.200.128.131) для настройки homeserver'а и деплоя"
+    }
+  }
+}

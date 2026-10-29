@@ -2,6 +2,22 @@
     display: flex;
     flex-direction: column;
     max-width: 70%;
+    margin-top: 8px;
+}
+
+/* следующее сообщение той же группы: без имени, плотнее,
+   и верхний угол со стороны отправителя почти прямой */
+.grouped {
+    margin-top: 2px;
+}
+
+.grouped .bubble {
+    border-top-left-radius: 4px;
+}
+
+.own.grouped .bubble {
+    border-top-left-radius: var(--radius-md);
+    border-top-right-radius: 4px;
 }
 
 .own {

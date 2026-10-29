@@ -7,7 +7,20 @@ import {
     saveSession,
     getSession,
     clearSession,
+    ConfigError,
+    isForbiddenError,
+    matrixErrorMessage,
 } from '../shared/lib/matrix';
+
+// честные сообщения об ошибках входа: ошибку конфигурации нельзя
+// маскировать под «неверный пароль» — юзер пойдёт менять не тот пароль
+const loginErrorMessage = (err: unknown): string => {
+    if (err instanceof ConfigError) return err.message;
+    if (isForbiddenError(err)) return 'Неверный логин или пароль.';
+    // сетевые ошибки (TypeError из fetch: нет сети, DNS, CORS) — без errcode
+    if (err instanceof TypeError) return 'Не удалось связаться с сервером. Проверьте соединение.';
+    return `Не удалось войти: ${matrixErrorMessage(err)}`;
+};
 
 const LoginPage = () => {
     const savedSession = getSession();
@@ -55,7 +68,7 @@ const LoginPage = () => {
             // откат: если сессия успела сохраниться частично — стираем,
             // иначе юзер застрянет в битой сессии с редиректом на /chats
             clearSession();
-            setError('Не удалось войти. Проверьте логин и пароль.');
+            setError(loginErrorMessage(err));
         } finally {
             setIsSubmitting(false);
         }

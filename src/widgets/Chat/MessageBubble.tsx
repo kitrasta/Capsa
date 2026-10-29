@@ -29,7 +29,7 @@ const sanitizeHtml = (html: string): string =>
         ALLOWED_URI_REGEXP: /^(?:https?:\/\/|mailto:|matrix:)/i,
     });
 
-const MessageBubble = memo(({ body, formattedBody, senderName, ts, sendStatus, isOwn }: MessageView) => {
+const MessageBubble = memo(({ body, formattedBody, senderName, ts, sendStatus, isOwn, grouped }: MessageView & { grouped?: boolean }) => {
     // санитайзинг — дорогой (парсинг DOM): гоняем только когда
     // меняется сам HTML, а не на каждый ре-рендер ленты
     const sanitizedHtml = useMemo(
@@ -38,8 +38,8 @@ const MessageBubble = memo(({ body, formattedBody, senderName, ts, sendStatus, i
     );
 
     return (
-        <div className={`${styles.message} ${isOwn ? styles.own : ''}`}>
-            {!isOwn && (
+        <div className={`${styles.message} ${isOwn ? styles.own : ''} ${grouped ? styles.grouped : ''}`}>
+            {!isOwn && !grouped && (
                 <div className={styles.senderName}>{senderName}</div>
             )}
             <div className={styles.bubble}>
