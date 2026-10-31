@@ -5,16 +5,19 @@
     gap: 16px;
     margin-top: auto;
     color: var(--c-text-1);
-    padding: 8px 0;
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px));
     justify-content: space-around;
     align-items: center;
 
 }
 
 .wrapper a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
     color: var(--c-text-1);
-
-
 }
 
 .wrapper a:hover {

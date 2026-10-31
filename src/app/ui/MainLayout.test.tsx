@@ -27,6 +27,7 @@ vi.mock('../../widgets/Settings/SettingsMenu', () => ({
 }));
 
 import MainLayout from './MainLayout';
+import styles from './MainLayout.module.css';
 import {
     cleanupLegacyCryptoStore,
     getSession,
@@ -85,8 +86,33 @@ describe('MainLayout: запуск по прямой ссылке', () => {
             error: null,
         });
 
-        renderDirectChatLink();
+        const { container } = renderDirectChatLink();
 
         expect(screen.getByText('Protected chat')).toBeTruthy();
+        expect(
+            (container.firstChild as Element).classList.contains(styles.roomOpen),
+        ).toBe(true);
+    });
+
+    it('включает мобильный режим с панелью разделов для настроек', () => {
+        vi.mocked(matrixLifecycle.getState).mockReturnValue({
+            state: 'client ready',
+            error: null,
+        });
+        const { container } = render(
+            <MemoryRouter initialEntries={['/settings/general']}>
+                <Routes>
+                    <Route element={<MainLayout />}>
+                        <Route path="/settings/general" element={<div>General</div>} />
+                    </Route>
+                </Routes>
+            </MemoryRouter>,
+        );
+
+        expect(
+            (container.firstChild as Element).classList.contains(styles.settings),
+        ).toBe(true);
+        expect(screen.getByText('Settings menu')).toBeTruthy();
+        expect(screen.getByText('General')).toBeTruthy();
     });
 });

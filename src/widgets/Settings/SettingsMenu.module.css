@@ -134,3 +134,41 @@
     color: #e5484d;
     font-size: 15px;
 }
+
+@media (max-width: 768px) {
+    .wrapper {
+        height: auto;
+        border: none;
+        border-bottom: 1px solid var(--c-border);
+        border-radius: 0;
+    }
+
+    .header {
+        padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 6px 16px;
+    }
+
+    .menu {
+        flex: none;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 4px 6px;
+    }
+
+    .row {
+        flex: 0 0 auto;
+        min-height: 40px;
+    }
+
+    .rowSub {
+        display: none;
+    }
+
+    .footer {
+        padding: 0 6px;
+    }
+
+    .logoutRow {
+        min-height: 40px;
+    }
+}
