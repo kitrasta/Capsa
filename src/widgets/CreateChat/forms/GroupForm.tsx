@@ -4,7 +4,7 @@ import { createGroup, searchUsers, type UserSearchResult } from '../../../shared
 import styles from '../CreateChatModal.module.css';
 
 interface GroupFormProps {
-    onDone: () => void;
+    onDone: (roomId: string) => void;
 }
 
 const GroupForm = ({ onDone }: GroupFormProps) => {
@@ -63,11 +63,11 @@ const GroupForm = ({ onDone }: GroupFormProps) => {
         setIsCreating(true);
         setError(null);
         try {
-            await createGroup(
+            const roomId = await createGroup(
                 trimmedName,
                 selectedUsers.map((u) => u.userId),
             );
-            onDone();
+            onDone(roomId);
         } catch (createError) {
             console.error('Failed to create group:', createError);
             setError('Не удалось создать группу');
