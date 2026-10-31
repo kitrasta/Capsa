@@ -1,46 +1,30 @@
+import { NavLink } from 'react-router-dom';
+import { Users, MessageSquare, Phone, Settings } from 'lucide-react';
 import styles from './Navbar.module.css';
-import {NavLink} from 'react-router-dom';
-import { Users, MessageSquare, Phone, Settings} from 'lucide-react'
 
+const items = [
+    { to: '/chats', label: 'Чаты', Icon: MessageSquare },
+    { to: '/contacts', label: 'Контакты', Icon: Users },
+    { to: '/calls', label: 'Звонки', Icon: Phone },
+    { to: '/settings', label: 'Настройки', Icon: Settings },
+];
 
-const Navbar = () => {
-    return (
-
-    <nav className={styles.wrapper}>
-        <NavLink
-            to="/contacts"
-            aria-label="Контакты"
-            className={({ isActive}) => isActive ? styles.active : ''}
+const Navbar = () => (
+    <nav className={styles.wrapper} aria-label="Основная навигация">
+        {items.map(({ to, label, Icon }) => (
+            <NavLink
+                key={to}
+                to={to}
+                aria-label={label}
+                className={({ isActive }) =>
+                    `${styles.link} ${isActive ? styles.active : ''}`
+                }
             >
-                <Users size={24}/>
-        </NavLink>
-
-        <NavLink
-        to='/calls'
-        aria-label='Звонки'
-        className={({ isActive}) => isActive ? styles.active : ''}
-         >
-            <Phone size={24} />
-         </NavLink>
-         <NavLink
-         to='/chats'
-         aria-label='Чаты'
-         className={({ isActive}) => isActive ? styles.active : ''}
-         >
-            <MessageSquare size={24} />
-         </NavLink>
-         <NavLink
-            to='/settings'
-            aria-label='Настройки'
-            className={({ isActive}) => isActive ? styles.active : ''}
-         >
-            <Settings size={24} />
-
-         </NavLink>
-
+                <Icon size={21} />
+                <span className={styles.label}>{label}</span>
+            </NavLink>
+        ))}
     </nav>
-
-    )
-}
+);
 
 export default Navbar;

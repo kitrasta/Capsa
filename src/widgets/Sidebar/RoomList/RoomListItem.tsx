@@ -3,61 +3,99 @@ import styles from './RoomListItem.module.css';
 import type { RoomListItemView } from './hooks/useRoomListItem';
 
 export interface Props extends RoomListItemView {
-    // скачанный аватар (object URL): даёт useRoomListItemAvatar снаружи,
-    // чтобы компонент остался чистовым — без эффектов и SDK-объектов
     avatarSrc: string | null;
     isActive: boolean;
     onClick: (roomId: string) => void;
 }
 
-const AVATAR_SIZE = 40;
+const AVATAR_SIZE = 48;
 
-// Чистовой компонент одного элемента списка комнат: на вход — только снимок
-// данных (RoomListItemView). React.memo пропускает ре-рендеры, пока снимок
-// не изменился; обновления приходят из useRoomListItem (подписка на комнату).
-const RoomListItem = memo(({ roomId, name, avatarSrc, lastMessage, unread, hasUnread, isMe, isActive, onClick }: Props) => (
-    <div
-        className={`${styles.room} ${isActive ? styles.active : ''}`}
-        onClick={() => onClick(roomId)}
-    >
-        {avatarSrc ? (
-            <img
-                className={styles.avatar}
-                src={avatarSrc}
-                alt={name}
-                width={AVATAR_SIZE}
-                height={AVATAR_SIZE}
-            />
-        ) : (
-            <div
-                className={`${styles.avatar} ${styles.avatarFallback}`}
-                style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
-            >
-                {(name || '?').charAt(0).toUpperCase()}
-            </div>
-        )}
+const formatActivityTime = (ts: number): string => {
+    if (!ts) return '';
+    const date = new Date(ts);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    if (isToday) {
+        return date.toLocaleTimeString('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    }
 
-        <div className={styles.info}>
-            <div className={`${styles.name} ${hasUnread ? styles.nameUnread : ''}`}>
-                {name}
-            </div>
-            {lastMessage && (
-                <div className={styles.lastMessage}>
-                    <span className={styles.sender}>
-                        {isMe ? 'Вы' : lastMessage.senderName}:
-                    </span>{' '}
-                    <span className={styles.text}>{lastMessage.text}</span>
-                </div>
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) return 'Вчера';
+
+    return date.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'short',
+        ...(date.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
+    });
+};
+
+const RoomListItem = memo(
+    ({
+        roomId,
+        name,
+        avatarSrc,
+        lastMessage,
+        unread,
+        hasUnread,
+        isMe,
+        isActive,
+        lastActivityTs,
+        onClick,
+    }: Props) => (
+        <button
+            type="button"
+            className={`${styles.room} ${isActive ? styles.active : ''}`}
+            onClick={() => onClick(roomId)}
+            aria-current={isActive ? 'page' : undefined}
+        >
+            {avatarSrc ? (
+                <img
+                    className={styles.avatar}
+                    src={avatarSrc}
+                    alt=""
+                    width={AVATAR_SIZE}
+                    height={AVATAR_SIZE}
+                />
+            ) : (
+                <span
+                    className={`${styles.avatar} ${styles.avatarFallback}`}
+                    aria-hidden="true"
+                >
+                    {(name || '?').charAt(0).toUpperCase()}
+                </span>
             )}
-        </div>
 
-        {hasUnread && (
-            <span className={styles.badge}>
-                {unread > 99 ? '99+' : unread}
+            <span className={styles.info}>
+                <span className={styles.topLine}>
+                    <span className={`${styles.name} ${hasUnread ? styles.nameUnread : ''}`}>
+                        {name}
+                    </span>
+                    <time className={styles.time}>{formatActivityTime(lastActivityTs)}</time>
+                </span>
+
+                <span className={styles.bottomLine}>
+                    <span className={styles.lastMessage}>
+                        {lastMessage && (
+                            <>
+                                <span className={styles.sender}>
+                                    {isMe ? 'Вы' : lastMessage.senderName}:
+                                </span>{' '}
+                                <span className={styles.text}>{lastMessage.text}</span>
+                            </>
+                        )}
+                    </span>
+                    {hasUnread && (
+                        <span className={styles.badge}>{unread > 99 ? '99+' : unread}</span>
+                    )}
+                </span>
             </span>
-        )}
-    </div>
-));
+        </button>
+    ),
+);
 
 RoomListItem.displayName = 'RoomListItem';
 

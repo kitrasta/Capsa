@@ -26,6 +26,7 @@ export interface RoomListItemView {
     unread: number;
     hasUnread: boolean;
     isMe: boolean;
+    lastActivityTs: number;
 }
 
 // превью последнего события комнаты
@@ -140,5 +141,6 @@ export const useRoomListItem = (room: Room): RoomListItemView => {
         unread,
         hasUnread: unread > 0,
         isMe: lastMessage?.senderId === myUserId,
+        lastActivityTs: room.getLastActiveTimestamp(),
     };
 };

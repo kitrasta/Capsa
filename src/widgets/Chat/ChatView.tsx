@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, ArrowUp, X } from 'lucide-react';
 import { getClient } from '../../shared/lib/matrix';
 import { useRoomReady, useIsLoading } from './hooks/useRoomReady';
 import { useRoomTimeline } from './hooks/useRoomTimeline';
@@ -169,7 +170,7 @@ const ChatView = ({ roomId }: Props) => {
     return (
         <div className={styles.wrapper}>
             <header className={styles.header}>
-                <button className={styles.backButton} onClick={() => navigate('/chats')} aria-label="Назад к списку чатов">←</button>
+                <button className={styles.backButton} onClick={() => navigate('/chats')} aria-label="Назад к списку чатов"><ArrowLeft size={21} /></button>
                 <Avatar room={room} size={40} />
                 <div className={styles.headerInfo}>
                     <div className={styles.headerName}>
@@ -216,7 +217,7 @@ const ChatView = ({ roomId }: Props) => {
                         onClick={() => setReplyDraft(null)}
                         aria-label="Отменить ответ"
                     >
-                        ✕
+                        <X size={16} />
                     </button>
                 </div>
             )}
@@ -236,16 +237,17 @@ const ChatView = ({ roomId }: Props) => {
                         }}
                         aria-label="Отменить правку"
                     >
-                        ✕
+                        <X size={16} />
                     </button>
                 </div>
             )}
 
             <form className={styles.inputRow} onSubmit={handleSubmit}>
-                <input
+                <textarea
                     className={styles.input}
-                    type="text"
+                    rows={1}
                     placeholder={hint}
+                    aria-label="Сообщение"
                     value={text}
                     onChange={(e) => {
                         setText(e.target.value);
@@ -254,11 +256,17 @@ const ChatView = ({ roomId }: Props) => {
                             typing(e.target.value);
                         }
                     }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                            e.preventDefault();
+                            e.currentTarget.form?.requestSubmit();
+                        }
+                    }}
                     onFocus={() => setInputFocused(true)}
                     onBlur={() => setInputFocused(false)}
                     autoFocus
                 />
-                <button className={styles.sendButton} type="submit" disabled={!text.trim()} aria-label="Отправить">→</button>
+                <button className={styles.sendButton} type="submit" disabled={!text.trim()} aria-label="Отправить"><ArrowUp size={20} /></button>
             </form>
         </div>
     );

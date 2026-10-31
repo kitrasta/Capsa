@@ -2,16 +2,15 @@
     display: flex;
     align-items: center;
     gap: 12px;
-
-    min-height: 52px;
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-
+    width: 100%;
+    min-height: 66px;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
     color: var(--c-text-1);
+    text-align: left;
     cursor: pointer;
-
-    white-space: nowrap;
-    overflow: hidden;
 }
 
 .room:hover {
@@ -28,27 +27,68 @@
 }
 
 .info {
-    flex: 1;
     display: flex;
+    flex: 1;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     min-width: 0;
 }
 
+.topLine,
+.bottomLine {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.topLine {
+    justify-content: space-between;
+}
+
+.bottomLine {
+    min-height: 20px;
+}
+
 .name {
-    font-size: 15px;
-    line-height: 20px;
+    min-width: 0;
     overflow: hidden;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 20px;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .nameUnread {
     font-weight: 700;
 }
 
-.badge {
+.time {
     flex-shrink: 0;
-    display: flex;
+    color: var(--c-text-3);
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.lastMessage {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--c-text-2);
+    font-size: 13px;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sender {
+    color: var(--c-text-3);
+}
+
+.badge {
+    display: inline-flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
     min-width: 22px;
@@ -62,35 +102,26 @@
     line-height: 1;
 }
 
-.lastMessage {
-    font-size: 13px;
-    line-height: 18px;
-    color: var(--c-text-2);
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.sender {
-    color: var(--c-text-3);
-}
-
-.room:active .sender,
-.room:active .lastMessage {
-    color: var(--c-bg);
-}
-
-/* аватар комнаты: картинка или заглушка с первой буквой имени */
 .avatar {
+    display: inline-flex;
     flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     object-fit: cover;
 }
 
 .avatarFallback {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background: var(--c-bg-soft);
     color: var(--c-text-2);
-    font-size: 18px;
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.room:active .sender,
+.room:active .lastMessage,
+.room:active .time {
+    color: var(--c-bg);
 }
