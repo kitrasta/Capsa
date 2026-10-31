@@ -72,12 +72,9 @@ describe('useMessageSend: reply', () => {
 });
 
 describe('useMessageSend: edit', () => {
-    beforeEach(() => {
-        vi.mocked(getClient()).getRoom().findEventById.mockReset();
-    });
-
     it('отправляет правку с m.replace + m.new_content', async () => {
-        vi.mocked(getClient()).getRoom().findEventById.mockReturnValueOnce({
+        const room = vi.mocked(getClient()).getRoom();
+        room.findEventById.mockReturnValueOnce({
             getId: () => '$m1',
             getWireContent: () => ({ msgtype: 'm.text', body: 'старый текст' }),
         } as never);
@@ -156,14 +153,17 @@ describe('useMessageSend: toggleReaction', () => {
         })),
     };
 
+    let client: ReturnType<typeof getClient>;
+
     beforeEach(() => {
-        vi.mocked(getClient).mockReturnValue({
+        client = {
             sendTextMessage,
             sendTyping,
             redactEvent: vi.fn(async () => ({})),
             sendEvent: vi.fn(async () => ({})),
             getRoom: () => mockRoom,
-        } as unknown as ReturnType<typeof getClient>);
+        };
+        vi.mocked(getClient).mockReturnValue(client as unknown as ReturnType<typeof getClient>);
     });
 
     it('добавляет новую реакцию', async () => {
@@ -173,7 +173,7 @@ describe('useMessageSend: toggleReaction', () => {
             await result.current.toggleReaction('$m1', '👍');
         });
 
-        expect(vi.mocked(getClient()).sendEvent).toHaveBeenCalledWith(
+        expect(client.sendEvent).toHaveBeenCalledWith(
             ROOM_ID,
             'm.reaction',
             expect.objectContaining({
@@ -188,7 +188,8 @@ describe('useMessageSend: toggleReaction', () => {
             isRelation: () => true,
             getId: () => '$reaction',
         };
-        vi.mocked(getClient()).getRoom().getUnfilteredTimelineSet().relations.getChildEventsForEvent.mockReturnValueOnce({
+        const room = client.getRoom();
+        room.getUnfilteredTimelineSet().relations.getChildEventsForEvent.mockReturnValueOnce({
             getSortedAnnotationsByKey: () => [['👍', new Set([myReaction as never])]],
         });
         const { result } = render();
@@ -197,6 +198,6 @@ describe('useMessageSend: toggleReaction', () => {
             await result.current.toggleReaction('$m1', '👍');
         });
 
-        expect(vi.mocked(getClient()).redactEvent).toHaveBeenCalledWith(ROOM_ID, '$reaction');
+        expect(client.redactEvent).toHaveBeenCalledWith(ROOM_ID, '$reaction');
     });
 });
