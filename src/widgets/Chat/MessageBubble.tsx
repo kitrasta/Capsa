@@ -34,7 +34,7 @@ const sanitizeHtml = (html: string): string =>
         ALLOWED_URI_REGEXP: /^(?:https?:\/\/|mailto:|matrix:)/i,
     });
 
-interface MessageBubbleProps {
+export interface MessageBubbleProps {
     message: MessageView;
     grouped?: boolean;
     onReply?: (message: MessageView) => void;
@@ -42,6 +42,19 @@ interface MessageBubbleProps {
     onToggleReaction?: (messageId: string, key: string) => void;
     onReplyClick?: (messageId: string) => void;
 }
+
+// React.memo передаёт comparator'у props целиком, а не только MessageView.
+// Сравниваем снимок сообщения и остальные props отдельно.
+const sameMessageBubbleProps = (
+    prev: Readonly<MessageBubbleProps>,
+    next: Readonly<MessageBubbleProps>,
+): boolean =>
+    sameMessageView(prev.message, next.message) &&
+    prev.grouped === next.grouped &&
+    prev.onReply === next.onReply &&
+    prev.onEdit === next.onEdit &&
+    prev.onToggleReaction === next.onToggleReaction &&
+    prev.onReplyClick === next.onReplyClick;
 
 // memo нужен для оптимизации: при пересчёте ленты (новая страница истории,
 // расшифровка, реакция/правка) перерисовываются только пузыри, которые
@@ -65,7 +78,7 @@ const MessageBubble = memo(
                 {message.replyTo && (
                     <button
                         className={styles.replyPreview}
-                        onClick={() => onReplyClick?.(message.id)}
+                        onClick={() => onReplyClick?.(message.replyTo!.id)}
                         aria-label="Перейти к ответу"
                     >
                         <span className={styles.replyArrow}>↩</span>
@@ -128,7 +141,7 @@ const MessageBubble = memo(
             </div>
         );
     },
-    sameMessageView,
+    sameMessageBubbleProps,
 );
 
 MessageBubble.displayName = 'MessageBubble';

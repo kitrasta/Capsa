@@ -47,6 +47,7 @@ export {
     parseReplyBody,
     trimReplyFromBody,
     trimReplyFromFormattedBody,
+    type ReplyTarget,
     getEventReactions,
     getReactionContent,
 } from './api/messages';
