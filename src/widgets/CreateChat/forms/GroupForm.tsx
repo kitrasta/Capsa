@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { createGroup, searchUsers, type UserSearchResult } from '../../../shared/lib/matrix';
 import styles from '../CreateChatModal.module.css';
@@ -15,9 +15,11 @@ const GroupForm = ({ onDone }: GroupFormProps) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
     const [selectedUsers, setSelectedUsers] = useState<UserSearchResult[]>([]);
+    const searchVersionRef = useRef(0);
 
     // поиск участников группы с debounce 400мс
     useEffect(() => {
+        const version = ++searchVersionRef.current;
         if (groupStep !== 'members') return;
 
         const term = searchTerm.trim();
@@ -25,14 +27,20 @@ const GroupForm = ({ onDone }: GroupFormProps) => {
 
         const timer = setTimeout(async () => {
             try {
-                setSearchResults(await searchUsers(term));
+                const results = await searchUsers(term);
+                if (version !== searchVersionRef.current) return;
+                setSearchResults(results);
             } catch (searchError) {
+                if (version !== searchVersionRef.current) return;
                 console.error('Error searching users:', searchError);
                 setSearchResults([]);
             }
         }, 400);
 
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            searchVersionRef.current += 1;
+        };
     }, [searchTerm, groupStep]);
 
     const handleSelectUser = (user: UserSearchResult) => {
@@ -123,6 +131,7 @@ const GroupForm = ({ onDone }: GroupFormProps) => {
                 value={searchTerm}
                 onChange={(event) => {
                     const value = event.target.value;
+                    searchVersionRef.current += 1;
                     setSearchTerm(value);
                     if (value.trim() === '') {
                         setSearchResults([]);

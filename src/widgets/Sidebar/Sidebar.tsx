@@ -3,7 +3,7 @@ import Navbar from './Navbar/Navbar';
 import SearchBar from './Search/SearchBar';
 import RoomList from './RoomList/RoomList';
 import CreateChatModal from '../CreateChat/CreateChatModal';
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import {
@@ -24,18 +24,27 @@ const Sidebar = () => {
     const [users, setUsers] = useState<UserSearchResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [isCreateChatOpen, setIsCreateChatOpen] = useState(false);
+    // У каждого поиска своя версия: debounce отменяет только таймер,
+    // но не уже отправленный HTTP-запрос. Ответ старой версии игнорируем.
+    const searchVersionRef = useRef(0);
 
     useEffect(() => {
-        if (searchTerm === '') return;
+        const version = ++searchVersionRef.current;
+        const term = searchTerm.trim();
+        if (term === '') return;
 
         const timer = setTimeout(async () => {
             setLoading(true);
             // комнаты и людей ищем параллельно:
             // одна из веток может упасть — вторая покажется всё равно
             const [roomsResult, usersResult] = await Promise.allSettled([
-                searchPublicRooms(searchTerm),
-                searchUsers(searchTerm),
+                searchPublicRooms(term),
+                searchUsers(term),
             ]);
+
+            // Пользователь уже изменил или очистил запрос — этот ответ
+            // больше не имеет права перезаписать результаты и loader.
+            if (version !== searchVersionRef.current) return;
 
             if (roomsResult.status === 'fulfilled') {
                 setResults(roomsResult.value);
@@ -52,23 +61,32 @@ const Sidebar = () => {
             setLoading(false);
         }, 500);
 
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            // В том числе инвалидирует запрос при размонтировании Sidebar.
+            searchVersionRef.current += 1;
+        };
     }, [searchTerm]);
 
     // стабильные обработчики: без них memo результатов поиска
     // никогда бы не пропустил ре-рендер
     const handleSearchChange = useCallback((value: string) => {
+        // Инвалидируем сразу, не дожидаясь следующего effect.
+        searchVersionRef.current += 1;
         setSearchTerm(value);
-        if (value === '') {
+        if (value.trim() === '') {
             setResults([]);
             setUsers([]);
+            setLoading(false);
         }
     }, []);
 
     const resetSearch = useCallback(() => {
+        searchVersionRef.current += 1;
         setSearchTerm('');
         setResults([]);
         setUsers([]);
+        setLoading(false);
     }, []);
 
     const handleRoomClick = useCallback(async (roomId: string) => {
