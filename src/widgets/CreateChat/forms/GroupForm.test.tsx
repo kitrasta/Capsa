@@ -8,7 +8,7 @@ vi.mock('../../../shared/lib/matrix', () => ({
 }));
 
 import GroupForm from './GroupForm';
-import { searchUsers, type UserSearchResult } from '../../../shared/lib/matrix';
+import { createGroup, searchUsers, type UserSearchResult } from '../../../shared/lib/matrix';
 
 const deferred = <T,>() => {
     let resolve!: (value: T) => void;
@@ -36,6 +36,26 @@ afterEach(() => {
     cleanup();
     vi.useRealTimers();
     vi.restoreAllMocks();
+});
+
+describe('GroupForm: создание группы', () => {
+    it('создаёт группу и возвращает roomId для перехода в неё', async () => {
+        vi.mocked(createGroup).mockResolvedValue('!group:example.org');
+        const onDone = vi.fn();
+        render(<GroupForm onDone={onDone} />);
+
+        fireEvent.change(screen.getByPlaceholderText('Название группы'), {
+            target: { value: 'Команда' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Создать группу' }));
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(createGroup).toHaveBeenCalledWith('Команда', []);
+        expect(onDone).toHaveBeenCalledWith('!group:example.org');
+    });
 });
 
 describe('GroupForm: гонки поиска участников', () => {

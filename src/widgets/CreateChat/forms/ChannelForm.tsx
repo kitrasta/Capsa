@@ -4,7 +4,7 @@ import { createChannel } from '../../../shared/lib/matrix';
 import styles from '../CreateChatModal.module.css';
 
 interface ChannelFormProps {
-    onDone: () => void;
+    onDone: (roomId: string) => void;
 }
 
 const ChannelForm = ({ onDone }: ChannelFormProps) => {
@@ -21,8 +21,8 @@ const ChannelForm = ({ onDone }: ChannelFormProps) => {
         setIsCreating(true);
         setError(null);
         try {
-            await createChannel(trimmedName, topic.trim() || undefined);
-            onDone();
+            const roomId = await createChannel(trimmedName, topic.trim() || undefined);
+            onDone(roomId);
         } catch (createError) {
             console.error('Failed to create channel:', createError);
             setError('Не удалось создать канал');
