@@ -91,7 +91,6 @@ describe('buildEditContent', () => {
     });
 
     it('сохраняет m.new_content при редактировании ответа', () => {
-        const replyTarget = { 'm.in_reply_to': { event_id: '$r1' } };
         const event = makeEvent('$m1', {
             msgtype: 'm.text',
             body: '> <@alice:example.org> Привет\n\nВ ответ',
@@ -99,7 +98,7 @@ describe('buildEditContent', () => {
         });
         const content = buildEditContent(event, 'оправился');
 
-        expect(content['m.new_content']['m.relates_to']['m.in_reply_to'].event_id).toBe('$r1');
+        expect(content['m.new_content']['m.relates_to']?.['m.in_reply_to'].event_id).toBe('$r1');
         expect(content['m.new_content'].body).toBe('оправился');
         expect(content.body).toBe('* оправился');
     });

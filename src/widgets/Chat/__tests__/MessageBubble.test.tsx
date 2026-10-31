@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, fireEvent, render } from '@testing-library/react';
 import MessageBubble from '../MessageBubble';
 import { toMessageView, type MessageView } from '../messageView';
 import type { MatrixEvent, Room } from 'matrix-js-sdk';
 
-// без vitest-globals RTL не чистит DOM сам
-afterEach(cleanup);
+afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+});
 
 const baseView = (id: string, body: string): MessageView => ({
     id,
@@ -16,18 +18,20 @@ const baseView = (id: string, body: string): MessageView => ({
     ts: 1700000000000,
     sendStatus: null,
     isOwn: false,
+    isEdited: false,
+    replyTo: null,
+    reactions: [],
+    canEdit: false,
 });
 
-// MessageBubble зовёт toLocaleTimeString при КАЖДОМ своём ре-рендере —
+// MessageBubble зовёт toLocaleTimeString при каждом своём рендере —
 // по числу вызовов считаем, сколько пузырей реально отрендерилось.
-// (React.Profiler для этого не годится: его onRender срабатывает и при
-// bailout'е memo.)
 const countRenders = () => vi.spyOn(Date.prototype, 'toLocaleTimeString');
 
 const BubbleList = ({ views }: { views: MessageView[] }) => (
     <>
         {views.map((view) => (
-            <MessageBubble key={view.id} {...view} />
+            <MessageBubble key={view.id} message={view} />
         ))}
     </>
 );
@@ -47,37 +51,32 @@ describe('MessageBubble: memo', () => {
         const spy = countRenders();
         const views = [baseView('m1', 'hello'), baseView('m2', 'world')];
         const { rerender } = render(<BubbleList views={views} />);
-        expect(spy).toHaveBeenCalledTimes(2); // по разу на каждый пузырь
+        expect(spy).toHaveBeenCalledTimes(2);
 
-        // родитель перерендерился, но данные те же (новые объекты, значения равны)
         rerender(<BubbleList views={[baseView('m1', 'hello'), baseView('m2', 'world')]} />);
 
-        expect(spy).toHaveBeenCalledTimes(2); // ни одного нового ре-рендера
+        expect(spy).toHaveBeenCalledTimes(2);
     });
 });
 
-describe('MessageBubble: расшифровка', () => {
+describe('MessageBubble: обновления', () => {
     it('перерисовывается ТОЛЬКО расшифрованный пузырь, и он показывает текст', () => {
         const spy = countRenders();
-        // m2 пришёл как m.room.encrypted → тела ещё нет
         const { rerender, getByText } = render(
             <BubbleList views={[baseView('m1', 'hello'), baseView('m2', '')]} />,
         );
         expect(spy).toHaveBeenCalledTimes(2);
 
-        // расшифровка m2: у него появилось тело
         rerender(
             <BubbleList views={[baseView('m1', 'hello'), baseView('m2', 'secret')]} />,
         );
 
-        // ровно один ре-рендер (итого 3) + контент обновился → это m2,
-        // а не сосед: memo не заморозил расшифрованное сообщение
         expect(spy).toHaveBeenCalledTimes(3);
         getByText('secret');
         getByText('hello');
     });
 
-    it('обновляется только свой пузырь и при смене статуса отправки', () => {
+    it('обновляется только свой пузырь при смене статуса отправки', () => {
         const spy = countRenders();
         const sending: MessageView = { ...baseView('m1', 'hi'), isOwn: true, sendStatus: '🕓' };
         const sent: MessageView = { ...baseView('m1', 'hi'), isOwn: true, sendStatus: '✓' };
@@ -86,18 +85,40 @@ describe('MessageBubble: расшифровка', () => {
         const { rerender, getByText } = render(<BubbleList views={[sending, other]} />);
         rerender(<BubbleList views={[sent, other]} />);
 
-        expect(spy).toHaveBeenCalledTimes(3); // рендернулся только m1
+        expect(spy).toHaveBeenCalledTimes(3);
         getByText('✓');
+    });
+
+    it('переходит к исходному сообщению, а не к самому ответу', () => {
+        const onReplyClick = vi.fn();
+        const view: MessageView = {
+            ...baseView('$reply', 'Ответ'),
+            replyTo: { id: '$original', senderName: 'Alice', body: 'Исходное' },
+        };
+        const { getByRole } = render(
+            <MessageBubble message={view} onReplyClick={onReplyClick} />,
+        );
+
+        fireEvent.click(getByRole('button', { name: 'Перейти к ответу' }));
+
+        expect(onReplyClick).toHaveBeenCalledWith('$original');
     });
 });
 
 describe('toMessageView', () => {
-    const makeEvent = (content: Record<string, unknown>, opts: { sender?: string; ts?: number } = {}) =>
+    const makeEvent = (
+        content: Record<string, unknown>,
+        opts: { sender?: string; ts?: number } = {},
+    ) =>
         ({
             getId: () => '$event1',
             getSender: () => opts.sender ?? '@alice:example.org',
             getTs: () => opts.ts ?? 1700000000000,
             getContent: () => content,
+            getRelation: () => undefined,
+            replacingEventId: () => undefined,
+            isRedacted: () => false,
+            replyEventId: undefined,
             status: undefined,
         }) as unknown as MatrixEvent;
 
@@ -106,13 +127,21 @@ describe('toMessageView', () => {
             currentState: {
                 getMember: () => (memberName ? { name: memberName } : null),
             },
+            findEventById: () => undefined,
+            getUnfilteredTimelineSet: () => ({
+                relations: { getChildEventsForEvent: () => undefined },
+            }),
         }) as unknown as Room;
 
     it('снимает видимые данные события', () => {
         const view = toMessageView(
-            makeEvent({ body: 'hello', format: 'org.matrix.custom.html', formatted_body: '<b>hi</b>' }),
+            makeEvent({
+                body: 'hello',
+                format: 'org.matrix.custom.html',
+                formatted_body: '<b>hi</b>',
+            }),
             makeRoom('Alice'),
-            true,
+            '@alice:example.org',
         );
 
         expect(view).toEqual({
@@ -123,14 +152,19 @@ describe('toMessageView', () => {
             ts: 1700000000000,
             sendStatus: null,
             isOwn: true,
+            isEdited: false,
+            replyTo: null,
+            reactions: [],
+            canEdit: false,
         });
     });
 
     it('без имени участника показывает senderId; sendStatus только у своих', () => {
-        const view = toMessageView(makeEvent({ body: 'x' }), makeRoom(), false);
+        const view = toMessageView(makeEvent({ body: 'x' }), makeRoom(), '@me:example.org');
 
         expect(view.senderName).toBe('@alice:example.org');
         expect(view.formattedBody).toBeNull();
         expect(view.sendStatus).toBeNull();
+        expect(view.isOwn).toBe(false);
     });
 });

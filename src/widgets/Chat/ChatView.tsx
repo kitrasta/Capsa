@@ -102,7 +102,7 @@ const ChatView = ({ roomId }: Props) => {
         (view: MessageView) => {
             setReplyDraft({ id: view.id, senderName: view.senderName, body: view.body });
         },
-        [],
+        [setReplyDraft],
     );
 
     const handleEdit = useCallback(
@@ -110,7 +110,16 @@ const ChatView = ({ roomId }: Props) => {
             setEditDraft({ id: view.id, body: view.body });
             setText(view.body);
         },
-        [],
+        [setEditDraft, setText],
+    );
+
+    // Стабильный callback важен для memo: inline-функция заставляла бы
+    // перерисовывать все пузыри при любом рендере ChatView.
+    const handleToggleReaction = useCallback(
+        (id: string, key: string) => {
+            toggleReaction(id, key).catch(console.error);
+        },
+        [toggleReaction],
     );
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -196,11 +205,9 @@ const ChatView = ({ roomId }: Props) => {
                             grouped={item.grouped}
                             onReply={handleReply}
                             onEdit={handleEdit}
-                            onToggleReaction={(id, key) => {
-                                toggleReaction(id, key).catch(console.error);
-                            }}
+                            onToggleReaction={handleToggleReaction}
                             onReplyClick={handleScrollToReply}
-                        />,
+                        />
                     ),
                 )}
                 <div ref={bottomRef} />

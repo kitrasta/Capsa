@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 // matrix-js-sdk мокаем целиком: функции нужны только enum'ы и типы,
 // runtime библиотеки не тянем (как в useRoomTimeline.test)
 vi.mock('matrix-js-sdk', () => ({
+    RelationType: { Annotation: 'm.annotation' },
+    EventType: { Reaction: 'm.reaction' },
     EventStatus: {
         SENDING: 'SENDING',
         QUEUED: 'QUEUED',
@@ -25,6 +27,9 @@ const makeEvent = (
         getId: () => id,
         getType: () => 'm.room.message',
         getContent: () => ({ body: opts.body ?? `text-${id}` }),
+        getRelation: () => undefined,
+        replacingEventId: () => undefined,
+        replyEventId: undefined,
         isRedacted: () => false,
         getSender: () => opts.sender ?? '@alice:example.org',
         getTs: () => opts.ts ?? 1700000000000,
@@ -35,6 +40,10 @@ const room = {
     currentState: {
         getMember: (userId: string) => ({ name: userId }),
     },
+    findEventById: () => undefined,
+    getUnfilteredTimelineSet: () => ({
+        relations: { getChildEventsForEvent: () => undefined },
+    }),
 } as unknown as Room;
 
 // 12 ноября 2024, 12:00 по локали теста

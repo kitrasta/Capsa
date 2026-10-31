@@ -46,7 +46,9 @@ const MainLayout = () => {
                     ? <p>{fallback}</p>
                     : <p className={styles.startupError}>{snapshot.error ?? fallback}</p>}
             </aside>
-            <main className={styles.content}><Outlet /></main>
+            {/* Защищённые страницы нельзя монтировать до готовности клиента:
+                на прямой ссылке они вызовут getClient() до initClient(). */}
+            <main className={styles.content} />
         </div>
     )
 }

@@ -4,7 +4,7 @@
 // identity — поэтому родитель снимает с него данные на момент рендера,
 // а чистовой MessageBubble сравнивает их через React.memo.
 import type { MatrixEvent, Room } from 'matrix-js-sdk';
-import { EventStatus, RelationType } from 'matrix-js-sdk';
+import { EventStatus } from 'matrix-js-sdk';
 import {
     trimReplyFromBody,
     trimReplyFromFormattedBody,
@@ -26,6 +26,7 @@ export interface ReactionView {
 // ----------------------------------------------------------------------------
 
 export interface ReplyView {
+    id: string;
     senderName: string;
     body: string;
 }
@@ -79,13 +80,14 @@ const getReplyView = (event: MatrixEvent, room: Room): ReplyView | null => {
 
     const target = room.findEventById(replyId);
     if (!target) {
-        return { senderName: '', body: 'Сообщение недоступно' };
+        return { id: replyId, senderName: '', body: 'Сообщение недоступно' };
     }
     if (target.isRedacted()) {
-        return { senderName: '', body: 'Сообщение удалено' };
+        return { id: replyId, senderName: '', body: 'Сообщение удалено' };
     }
 
     return {
+        id: replyId,
         senderName: room.currentState.getMember(target.getSender() ?? '')?.name ?? target.getSender() ?? '',
         body: trimReplyFromBody(target.getContent<{ body?: string }>().body ?? ''),
     };
@@ -98,7 +100,7 @@ export const toMessageView = (
 ): MessageView => {
     const senderId = event.getSender() ?? '';
     const isOwn = senderId === myUserId;
-    const content = event.getContent<{ body?: string }>();
+    const content = event.getContent<{ body?: string; msgtype?: string }>();
 
     return {
         id: event.getId() ?? '',
@@ -143,6 +145,7 @@ const sameReply = (a: ReplyView | null, b: ReplyView | null): boolean =>
     a === b ||
     (a !== null &&
         b !== null &&
+        a.id === b.id &&
         a.senderName === b.senderName &&
         a.body === b.body);
 
