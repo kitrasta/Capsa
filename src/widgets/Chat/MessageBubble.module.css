@@ -1,23 +1,14 @@
 .message {
+    position: relative;
     display: flex;
     flex-direction: column;
-    max-width: 70%;
+    align-self: flex-start;
+    max-width: min(72%, 680px);
     margin-top: 8px;
 }
 
-/* следующее сообщение той же группы: без имени, плотнее,
-   и верхний угол со стороны отправителя почти прямой */
 .grouped {
     margin-top: 2px;
-}
-
-.grouped .bubble {
-    border-top-left-radius: 4px;
-}
-
-.own.grouped .bubble {
-    border-top-left-radius: var(--radius-md);
-    border-top-right-radius: 4px;
 }
 
 .own {
@@ -25,36 +16,54 @@
     align-items: flex-end;
 }
 
-.senderName {
-    margin: 8px 12px 2px;
-    color: var(--c-brand);
-    font-size: 13px;
-    font-weight: 600;
-}
-
 .bubble {
-    padding: 6px 12px 4px;
-    border-radius: var(--radius-md);
+    min-width: 76px;
+    padding: 7px 10px 6px;
+    border-radius: 14px 14px 14px 5px;
     background: var(--c-bg-soft);
 }
 
 .own .bubble {
+    border-radius: 14px 14px 5px 14px;
     background: var(--c-brand);
     color: var(--c-bg);
 }
 
-.text {
-    font-size: 15px;
-    line-height: 20px;
-    white-space: pre-wrap;
-    word-break: break-word;
+.grouped .bubble {
+    border-top-left-radius: 5px;
 }
 
-/* отформатированные сообщения (org.matrix.custom.html) */
+.own.grouped .bubble {
+    border-top-right-radius: 5px;
+    border-top-left-radius: 14px;
+}
+
+.senderName {
+    margin-bottom: 3px;
+    color: var(--c-brand);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 17px;
+}
+
+.bodyRow {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    min-width: 0;
+}
+
+.text,
 .textHtml {
-    font-size: 15px;
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
     line-height: 20px;
-    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.text {
+    white-space: pre-wrap;
 }
 
 .textHtml p {
@@ -66,12 +75,8 @@
 }
 
 .textHtml a {
-    color: var(--c-text-1);
+    color: inherit;
     text-decoration: underline;
-}
-
-.own .textHtml a {
-    color: var(--c-bg);
 }
 
 .textHtml code {
@@ -82,22 +87,14 @@
     font-size: 13px;
 }
 
-.own .textHtml code {
-    background: var(--c-bg-elv);
-}
-
 .textHtml pre {
     margin: 4px 0;
     padding: 8px 10px;
+    overflow-x: auto;
     border-radius: 6px;
     background: var(--c-bg);
     font-family: monospace;
     font-size: 13px;
-    overflow-x: auto;
-}
-
-.own .textHtml pre {
-    background: var(--c-bg-elv);
 }
 
 .textHtml pre code {
@@ -111,172 +108,158 @@
     border-left: 3px solid var(--c-text-3);
 }
 
-.own .textHtml blockquote {
-    border-left-color: var(--c-bg);
-}
-
-/* превью ответа */
-.replyPreview {
-    width: 100%;
-    text-align: left;
-    border: none;
-    border-radius: 4px;
-    background: var(--c-bg-elv);
-    color: var(--c-text-1);
-    font-size: 13px;
-    padding: 4px 10px 4px 8px;
-    cursor: pointer;
-}
-
-.replyPreview:hover {
-    background: var(--c-bg-soft);
-}
-
-.replyPreview:focus {
-    outline: none;
-    background: var(--c-bg-soft);
-}
-
-.replyArrow {
-    color: var(--c-brand);
-    margin-right: 6px;
-}
-
-.replySender {
-    font-weight: 600;
-    color: var(--c-text-1);
-}
-
-.replyBody {
-    color: var(--c-text-2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.textHtml ul,
+.textHtml ol {
+    padding-left: 20px;
 }
 
 .time {
-    display: flex;
-    justify-content: flex-end;
-    gap: 4px;
-    font-size: 11px;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    align-self: flex-end;
+    gap: 3px;
+    margin: 4px -2px -1px 4px;
     color: var(--c-text-3);
-    margin-top: 2px;
+    font-size: 10px;
+    line-height: 14px;
+    white-space: nowrap;
 }
 
 .own .time {
     color: var(--c-bg);
-    opacity: 0.7;
+    opacity: 0.75;
 }
 
 .edited {
-    font-style: italic;
-    opacity: 0.7;
+    font-style: normal;
 }
 
 .status {
-    font-weight: bold;
+    font-weight: 600;
 }
 
-/* панель реакций */
+.replyPreview {
+    display: flex;
+    align-items: stretch;
+    gap: 7px;
+    width: 100%;
+    margin-bottom: 5px;
+    padding: 4px 8px;
+    border: none;
+    border-left: 2px solid var(--c-brand);
+    border-radius: 5px;
+    background: var(--c-bg-elv);
+    color: var(--c-text-1);
+    text-align: left;
+    cursor: pointer;
+}
+
+.replyArrow {
+    flex-shrink: 0;
+    align-self: center;
+    color: var(--c-brand);
+}
+
+.replyContent {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.replySender {
+    color: var(--c-text-1);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.replyBody {
+    overflow: hidden;
+    color: var(--c-text-2);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .reactions {
     display: flex;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 4px;
     margin-top: 4px;
 }
 
 .reactionButton {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 2px 8px 2px 6px;
-    border-radius: 12px;
+    min-height: 26px;
+    padding: 2px 8px;
     border: 1px solid var(--c-border);
-    background: var(--c-bg);
+    border-radius: 13px;
+    background: var(--c-bg-soft);
     color: var(--c-text-2);
-    font-size: 13px;
+    font-size: 12px;
     cursor: pointer;
-}
-
-.reactionButton:hover {
-    background: var(--c-bg-soft);
-}
-
-.reactionButton:focus {
-    outline: none;
-    background: var(--c-bg-soft);
 }
 
 .reactionButton.mine {
     border-color: var(--c-brand);
-    background: var(--c-bg-elv);
     color: var(--c-text-1);
 }
 
-/* тулбар действий наведения (реакции + ответ + правка) */
 .actions {
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 0;
+    z-index: 5;
     display: flex;
     align-items: center;
-    gap: 3px;
-    margin-left: auto;
-    margin-top: 4px;
+    gap: 2px;
+    padding: 4px;
+    border: 1px solid var(--c-border);
+    border-radius: 20px;
+    background: var(--c-bg-elv);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
     opacity: 0;
+    pointer-events: none;
     transition: opacity 0.15s ease;
-    height: 16px;
 }
 
-.message:hover .actions {
+.own .actions {
+    right: 0;
+    left: auto;
+}
+
+.message:hover .actions,
+.message:focus-within .actions {
     opacity: 1;
+    pointer-events: auto;
 }
 
-.reactionAction {
-    width: 28px;
-    height: 28px;
+.reactionAction,
+.action {
     display: inline-flex;
+    flex: 0 0 30px;
     align-items: center;
     justify-content: center;
+    width: 30px;
+    height: 30px;
     border: none;
-    border-radius: 12px;
-    background: var(--c-bg-soft);
+    border-radius: 50%;
+    background: transparent;
     color: var(--c-text-2);
     font-size: 15px;
     cursor: pointer;
 }
 
-.reactionAction:hover {
-    background: var(--c-bg);
-    color: var(--c-text-1);
-}
-
-.reactionAction:focus {
-    outline: none;
-    background: var(--c-bg);
-    color: var(--c-text-1);
-}
-
-.action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 12px;
-    background: var(--c-bg-soft);
-    color: var(--c-text-2);
-    font-size: 16px;
-    cursor: pointer;
-    margin-left: 2px;
-}
-
+.reactionAction:hover,
 .action:hover {
-    background: var(--c-bg);
+    background: var(--c-bg-soft);
     color: var(--c-text-1);
 }
 
-.action:focus {
-    outline: none;
-    background: var(--c-bg);
-    color: var(--c-text-1);
+.mobileActionsButton {
+    display: none;
 }
 
 @media (max-width: 768px) {
@@ -285,17 +268,36 @@
     }
 }
 
-/* На сенсорных экранах нет hover: действия должны оставаться доступными. */
 @media (hover: none) {
-    .actions {
-        max-width: 100%;
-        height: auto;
-        overflow-x: auto;
-        opacity: 1;
+    .mobileActionsButton {
+        position: absolute;
+        top: 2px;
+        right: -34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--c-text-3);
     }
 
-    .reactionAction,
-    .action {
-        flex: 0 0 28px;
+    .own .mobileActionsButton {
+        right: auto;
+        left: -34px;
+    }
+
+    .actions {
+        display: none;
+        max-width: calc(100vw - 24px);
+        overflow-x: auto;
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .actionsOpen {
+        display: flex;
     }
 }

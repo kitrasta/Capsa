@@ -1,26 +1,18 @@
 :root {
-/* body — основной фон */
---c-bg: #1b1b1f;
+    --c-bg: #1b1b1f;
+    --sidebar-bg-color: #161618;
+    --c-bg-elv: #202127;
+    --c-bg-soft: #202127;
 
-/* sidenav — фон боковой панели */
---sidebar-bg-color: #161618;   /* = --vp-c-bg-alt */
+    --c-text-1: #dfdfd6;
+    --c-text-2: #98989f;
+    --c-text-3: #929295;
 
-/* прочее из их тёмной темы: */
---c-bg-elv:  #202127;   /* приподнятые поверхности (карточки, модалки) */
---c-bg-soft: #202127;   /* мягкие подложки */
+    --c-brand: #f56565;
+    --c-border: #3c3f44;
 
-/* текст */
---c-text-1: #dfdfd6;    /* основной текст */
---c-text-2: #98989f;    /* вторичный */
---c-text-3: #929295;    /* приглушённый */
-
-/* бренд/акцент */
---c-brand: #f56565;     /* их фирменный красный */
---c-border: #3c3f44;    /* границы */
-
-  /* Скругления */
-  --radius-sm: 8px;
-  --radius-md: 12px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
 }
 
 * {
@@ -40,6 +32,42 @@ body {
     min-width: 320px;
     background-color: var(--c-bg);
     color: var(--c-text-1);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
+button,
+input,
+textarea {
+    font: inherit;
+}
 
+button,
+a {
+    -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--c-brand);
+    outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+    border-radius: 6px;
+    background: rgba(154, 168, 184, 0.28);
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}

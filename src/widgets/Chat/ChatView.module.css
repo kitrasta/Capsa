@@ -1,6 +1,7 @@
 .wrapper {
     display: flex;
     flex-direction: column;
+    width: 100%;
     height: 100%;
     min-width: 0;
     min-height: 0;
@@ -8,26 +9,26 @@
 
 .header {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     gap: 12px;
-    padding: 8px 16px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--c-border);
+    min-height: 64px;
+    padding: 8px 18px;
+    border-bottom: 1px solid var(--c-border);
     background: var(--c-bg-elv);
-    flex-shrink: 0;
 }
 
 .backButton {
     display: none;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     border: none;
     border-radius: 50%;
     background: transparent;
     color: var(--c-text-2);
-    font-size: 18px;
     cursor: pointer;
 }
 
@@ -40,49 +41,64 @@
     display: flex;
     flex: 1;
     flex-direction: column;
+    gap: 2px;
     min-width: 0;
 }
 
 .headerName {
+    overflow: hidden;
     color: var(--c-text-1);
     font-size: 16px;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
+    line-height: 21px;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .encryptionIcon {
     margin-left: 6px;
-    font-size: 14px;
-    vertical-align: middle;
-    opacity: 0.8;
+    font-size: 13px;
+    opacity: 0.75;
 }
 
 .headerStatus {
+    overflow: hidden;
     color: var(--c-text-2);
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 17px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .messages {
+    display: flex;
     flex: 1;
+    flex-direction: column;
     min-height: 0;
     overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    padding: 16px;
+    padding: 12px 18px 18px;
+    scroll-behavior: smooth;
 }
 
-/* разделитель даты: «Сегодня» / «Вчера» / дата */
-.dateSeparator {
+.historyLoader {
     align-self: center;
-    margin: 16px 0 8px;
-    padding: 3px 12px;
+    padding: 6px 10px;
+    color: var(--c-text-2);
+    font-size: 12px;
+}
+
+.dateSeparator {
+    position: sticky;
+    top: 4px;
+    z-index: 2;
+    align-self: center;
+    margin: 12px 0 10px;
+    padding: 4px 12px;
     border-radius: 999px;
     background: var(--c-bg-elv);
     color: var(--c-text-2);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .empty {
@@ -92,152 +108,146 @@
 
 .inputRow {
     display: flex;
-    gap: 8px;
-    padding: 12px 16px;
-    border-top: 1px solid var(--c-border);
     flex-shrink: 0;
+    align-items: flex-end;
+    gap: 8px;
+    margin: 0 12px 12px;
+    padding: 5px 6px 5px 14px;
+    border: 1px solid var(--c-border);
+    border-radius: 18px;
+    background: var(--c-bg-soft);
 }
 
 .input {
     flex: 1;
     min-width: 0;
-    padding: 12px 16px;
-    background: var(--c-bg-soft);
-    border: 1px solid var(--c-border);
-    border-radius: var(--radius-md);
+    min-height: 42px;
+    max-height: 120px;
+    padding: 10px 0;
+    overflow-y: auto;
+    border: none;
+    background: transparent;
     color: var(--c-text-1);
+    line-height: 21px;
+    resize: none;
+    field-sizing: content;
 }
 
 .input:focus {
     outline: none;
-    border-color: var(--c-brand);
 }
 
 .input::placeholder {
+    overflow: hidden;
     color: var(--c-text-3);
+    text-overflow: ellipsis;
 }
 
 .sendButton {
+    display: inline-flex;
     flex-shrink: 0;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0 20px;
-    background: var(--c-brand);
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: 50%;
+    background: var(--c-brand);
     color: var(--c-bg);
-    font-size: 18px;
     cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .sendButton:disabled {
-    opacity: 0.4;
+    opacity: 0.35;
     cursor: default;
 }
 
 .sendButton:not(:disabled):hover {
-    filter: brightness(1.1);
+    transform: scale(1.04);
 }
 
-/* полоска с черновиком ответа / правки над полем ввода */
 .contextBar {
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     gap: 10px;
-    padding: 8px 16px;
+    margin: 0 12px 8px;
+    padding: 8px 10px 8px 14px;
+    border-left: 3px solid var(--c-brand);
+    border-radius: var(--radius-sm);
     background: var(--c-bg-soft);
-    border-top: 1px solid var(--c-border);
     font-size: 13px;
 }
 
 .contextBarBody {
     display: flex;
-    align-items: center;
-    gap: 10px;
     flex: 1;
+    flex-direction: column;
+    gap: 2px;
     min-width: 0;
 }
 
-.contextBarLabel {
+.contextBarLabel,
+.contextBarSender {
     color: var(--c-brand);
     font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
-}
-
-.contextBarSender {
-    font-weight: 600;
-    color: var(--c-text-1);
 }
 
 .contextBarText {
-    color: var(--c-text-2);
-    white-space: nowrap;
     overflow: hidden;
+    color: var(--c-text-2);
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .contextBarCancel {
-    width: 24px;
-    height: 24px;
     display: flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
+    width: 30px;
+    height: 30px;
     border: none;
     border-radius: 50%;
-    background: var(--c-bg-elv);
+    background: transparent;
     color: var(--c-text-2);
-    font-size: 16px;
     cursor: pointer;
-    flex-shrink: 0;
 }
 
 .contextBarCancel:hover {
-    background: var(--c-bg-soft);
-    color: var(--c-text-1);
-}
-
-.contextBarCancel:focus {
-    outline: none;
-    background: var(--c-bg-soft);
+    background: var(--c-bg-elv);
     color: var(--c-text-1);
 }
 
 @media (max-width: 768px) {
     .header {
         gap: 8px;
-        padding: calc(8px + env(safe-area-inset-top, 0px)) 8px 8px;
-        border-right: none;
-        border-left: none;
-        border-radius: 0;
+        min-height: 60px;
+        padding: calc(6px + env(safe-area-inset-top, 0px)) 8px 6px;
     }
 
     .backButton {
         display: flex;
-        flex-shrink: 0;
         min-width: 44px;
         min-height: 44px;
     }
 
     .messages {
-        padding: 12px 8px;
+        padding: 10px 8px 12px;
     }
 
     .inputRow {
-        gap: 6px;
-        padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+        margin: 0 8px calc(8px + env(safe-area-inset-bottom, 0px));
+        padding-left: 12px;
     }
 
     .input {
-        /* 16px не дают iOS увеличивать страницу при фокусе. */
         font-size: 16px;
     }
 
-    .sendButton {
-        padding: 0 12px;
-    }
-
     .contextBar {
-        padding: 8px;
+        margin: 0 8px 6px;
     }
 }

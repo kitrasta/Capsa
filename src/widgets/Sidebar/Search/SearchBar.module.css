@@ -1,48 +1,56 @@
 .wrapper {
-    flex-shrink: 0;
-    display:flex;
     position: relative;
-    padding: 12px 8px;
-    flex-direction:column;
+    display: flex;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding: 6px 10px 10px;
+}
+
+.inputRow {
+    position: relative;
 }
 
 .input {
     width: 100%;
-    padding: 8px 12px 8px 36px;
+    height: 40px;
+    padding: 8px 12px 8px 38px;
+    border: 1px solid transparent;
+    border-radius: 20px;
     background: var(--c-bg-soft);
-    border: 1px solid var(--c-border);
-    border-radius: var(--radius-sm);
     color: var(--c-text-1);
+    font-size: 14px;
+    transition: border-color 0.15s ease;
 }
 
-.inputRow {
-    position:relative;
+.input::placeholder {
+    color: var(--c-text-3);
 }
 
 .input:focus {
-    outline:none;
-
+    border-color: var(--c-brand);
+    outline: none;
 }
 
 .icon {
     position: absolute;
-    left: 10px;
     top: 50%;
-    transform: translateY(-50%);
+    left: 12px;
     color: var(--c-text-2);
+    transform: translateY(-50%);
+    pointer-events: none;
 }
 
 .section {
     display: flex;
     flex-direction: column;
-    padding: 4px 0;
+    padding: 6px 0 0;
 }
 
 .sectionTitle {
     padding: 4px 8px;
     color: var(--c-text-3);
-    font-size: 12px;
-    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 600;
     letter-spacing: 0.5px;
+    text-transform: uppercase;
 }
-

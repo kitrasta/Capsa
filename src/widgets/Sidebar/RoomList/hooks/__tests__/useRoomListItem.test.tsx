@@ -65,6 +65,7 @@ const setup = (opts: {
         getEventReadUpTo,
         getRoomUnreadNotificationCount: vi.fn(() => opts.serverUnread ?? null),
         getMxcAvatarUrl: vi.fn(() => 'mxc://avatar/1'),
+        getLastActiveTimestamp: vi.fn(() => 1700000000000),
         ...emitter(roomHandlers),
     };
 
