@@ -3,24 +3,34 @@
 // Пересобираем массив только когда он реально меняется:
 //  - новые события / локальные эхо (RoomEvent.Timeline, LocalEchoUpdated);
 //  - расшифровка события ЭТОЙ комнаты, которое после неё становится
-//    видимым сообщением (MatrixEventEvent.Decrypted).
+//    видимым сообщением (MatrixEventEvent.Decrypted);
+//  - редирекции (комнаты перемещаются по спискам, реакции/правки
+//    доходят через SDK-агрегацию, но иногда нужно пробуждение и явно).
 import { useEffect, useMemo, useState } from 'react';
 import { MatrixEventEvent, RoomEvent } from 'matrix-js-sdk';
 import type { MatrixEvent, Room } from 'matrix-js-sdk';
 import { getClient } from '../../../shared/lib/matrix';
 
-// событие попадает в ленту: не отредактировано, это сообщение с текстом
-export const isVisibleMessage = (event: MatrixEvent): boolean =>
-    !event.isRedacted() &&
-    event.getType() === 'm.room.message' &&
-    Boolean(event.getContent<{ body?: string }>().body);
+// Событие попадает в ленту: не отредактировано, это сообщение с текстом.
+// События-отношения (m.replace — правка, m.annotation — реакция) уже
+// вшиты в основное сообщение и в его снимок — в ленту их не показываем.
+export const isVisibleMessage = (event: MatrixEvent): boolean => {
+    if (typeof event.getRelation === 'function') {
+        const rel = event.getRelation();
+        if (rel?.rel_type === 'm.replace' || rel?.rel_type === 'm.annotation') {
+            return false;
+        }
+    }
+
+    return !event.isRedacted() && event.getType() === 'm.room.message' && Boolean(event.getContent<{ body?: string }>().body);
+};
 
 export const useRoomTimeline = (room: Room | null | undefined): MatrixEvent[] => {
     const [version, setVersion] = useState(0);
     // id расшифрованных событий этой комнаты. Каждое новое — повод
     // пересчитать ленту; повторные Decrypted по тому же событию игнорируем.
     // (Set комнат здесь бы не сработал: size перестаёт меняться после
-    // первого события и второе расшифрованное сообщение не появилось бы)
+    // первого события, и второе расшифрованное сообщение не появилось бы.)
     const [decryptedIds, setDecryptedIds] = useState<ReadonlySet<string>>(new Set());
 
     // новые сообщения / локальные эхо — перерисовываем ленту
@@ -31,9 +41,14 @@ export const useRoomTimeline = (room: Room | null | undefined): MatrixEvent[] =>
 
         room.on(RoomEvent.Timeline, onTimeline);
         room.on(RoomEvent.LocalEchoUpdated, onTimeline);
+        // правки/реакции доходят через SDK-агрегацию (Timeline/LiveEchoUpdated);
+        // но для внешних действий (редирект комнаты, редирекции реакций)
+        // срабатывает и RoomEvent.Redaction — он тоже пробуждает пересчёт.
+        room.on(RoomEvent.Redaction, onTimeline);
         return () => {
             room.off(RoomEvent.Timeline, onTimeline);
             room.off(RoomEvent.LocalEchoUpdated, onTimeline);
+            room.off(RoomEvent.Redaction, onTimeline);
         };
     }, [room]);
 

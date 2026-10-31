@@ -115,6 +115,45 @@
     border-left-color: var(--c-bg);
 }
 
+/* превью ответа */
+.replyPreview {
+    width: 100%;
+    text-align: left;
+    border: none;
+    border-radius: 4px;
+    background: var(--c-bg-elv);
+    color: var(--c-text-1);
+    font-size: 13px;
+    padding: 4px 10px 4px 8px;
+    cursor: pointer;
+}
+
+.replyPreview:hover {
+    background: var(--c-bg-soft);
+}
+
+.replyPreview:focus {
+    outline: none;
+    background: var(--c-bg-soft);
+}
+
+.replyArrow {
+    color: var(--c-brand);
+    margin-right: 6px;
+}
+
+.replySender {
+    font-weight: 600;
+    color: var(--c-text-1);
+}
+
+.replyBody {
+    color: var(--c-text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .time {
     display: flex;
     justify-content: flex-end;
@@ -127,4 +166,115 @@
 .own .time {
     color: var(--c-bg);
     opacity: 0.7;
+}
+
+.edited {
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.status {
+    font-weight: bold;
+}
+
+/* панель реакций */
+.reactions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.reactionButton {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px 2px 6px;
+    border-radius: 12px;
+    border: 1px solid var(--c-border);
+    background: var(--c-bg);
+    color: var(--c-text-2);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.reactionButton:hover {
+    background: var(--c-bg-soft);
+}
+
+.reactionButton:focus {
+    outline: none;
+    background: var(--c-bg-soft);
+}
+
+.reactionButton.mine {
+    border-color: var(--c-brand);
+    background: var(--c-bg-elv);
+    color: var(--c-text-1);
+}
+
+/* тулбар действий наведения (реакции + ответ + правка) */
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: auto;
+    margin-top: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    height: 16px;
+}
+
+.message:hover .actions {
+    opacity: 1;
+}
+
+.reactionAction {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 12px;
+    background: var(--c-bg-soft);
+    color: var(--c-text-2);
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.reactionAction:hover {
+    background: var(--c-bg);
+    color: var(--c-text-1);
+}
+
+.reactionAction:focus {
+    outline: none;
+    background: var(--c-bg);
+    color: var(--c-text-1);
+}
+
+.action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 12px;
+    background: var(--c-bg-soft);
+    color: var(--c-text-2);
+    font-size: 16px;
+    cursor: pointer;
+    margin-left: 2px;
+}
+
+.action:hover {
+    background: var(--c-bg);
+    color: var(--c-text-1);
+}
+
+.action:focus {
+    outline: none;
+    background: var(--c-bg);
+    color: var(--c-text-1);
 }

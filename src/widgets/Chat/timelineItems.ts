@@ -53,11 +53,18 @@ export const toTimelineItems = (
     let prevDay = 0;
 
     for (const event of events) {
+        // события-отношения (m.replace — правка, m.annotation — реакция) в ленте
+        // не отображаются: они уже «вшиты» в основное сообщение.
+        const rel = event.getRelation();
+        if (rel?.rel_type === 'm.replace' || rel?.rel_type === 'm.annotation') {
+            continue;
+        }
+
         const ts = event.getTs();
-        const day = startOfDay(ts);
         const senderId = event.getSender() ?? '';
 
         // смена суток — разделитель; после него группа начинается заново
+        const day = startOfDay(ts);
         if (day !== prevDay) {
             items.push({ kind: 'date', id: `date-${day}`, label: dateLabel(ts, nowTs) });
             prevDay = day;
@@ -71,7 +78,7 @@ export const toTimelineItems = (
             ts >= prevTs &&
             ts - prevTs <= MESSAGE_GROUP_TIME_GAP;
 
-        const view = toMessageView(event, room, senderId === myUserId);
+        const view = toMessageView(event, room, myUserId);
         items.push({ kind: 'message', id: view.id, view, grouped });
         prevSender = senderId;
         prevTs = ts;
