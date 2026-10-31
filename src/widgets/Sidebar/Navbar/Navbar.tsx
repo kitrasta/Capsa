@@ -9,6 +9,7 @@ const Navbar = () => {
     <nav className={styles.wrapper}>
         <NavLink
             to="/contacts"
+            aria-label="Контакты"
             className={({ isActive}) => isActive ? styles.active : ''}
             >
                 <Users size={24}/>
@@ -16,18 +17,21 @@ const Navbar = () => {
 
         <NavLink
         to='/calls'
+        aria-label='Звонки'
         className={({ isActive}) => isActive ? styles.active : ''}
          >
             <Phone size={24} />
          </NavLink>
          <NavLink
          to='/chats'
+         aria-label='Чаты'
          className={({ isActive}) => isActive ? styles.active : ''}
          >
             <MessageSquare size={24} />
          </NavLink>
          <NavLink
             to='/settings'
+            aria-label='Настройки'
             className={({ isActive}) => isActive ? styles.active : ''}
          >
             <Settings size={24} />

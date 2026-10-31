@@ -85,3 +85,10 @@
     background: var(--c-brand);
     color: var(--c-bg);
 }
+
+@media (max-width: 768px) {
+    .wrapper {
+        border: none;
+        border-radius: 0;
+    }
+}

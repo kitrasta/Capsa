@@ -16,6 +16,12 @@ const MainLayout = () => {
     );
     const { pathname } = useLocation();
     const isSettings = pathname.startsWith('/settings');
+    const isRoomOpen = pathname.startsWith('/chats/') && pathname !== '/chats/';
+    const layoutClassName = [
+        styles.wrapper,
+        isRoomOpen ? styles.roomOpen : '',
+        isSettings ? styles.settings : '',
+    ].filter(Boolean).join(' ');
 
     useEffect(() => {
         const session = getSession();
@@ -26,7 +32,7 @@ const MainLayout = () => {
 
     if (snapshot.state === 'client ready') {
         return (
-            <div className={styles.wrapper}>
+            <div className={layoutClassName}>
                 <aside className={styles.sidebar}>
                     {isSettings ? <SettingsMenu /> : <Sidebar />}
                 </aside>

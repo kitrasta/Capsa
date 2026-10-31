@@ -52,3 +52,24 @@
 .content {
     padding: 8px 20px 20px;
 }
+
+@media (max-width: 768px) {
+    .overlay {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .modal {
+        max-height: 90vh;
+        max-height: 90dvh;
+        overflow-y: auto;
+        border-right: none;
+        border-bottom: none;
+        border-left: none;
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+    }
+
+    .content {
+        padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    }
+}

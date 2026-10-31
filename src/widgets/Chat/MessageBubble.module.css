@@ -278,3 +278,24 @@
     background: var(--c-bg);
     color: var(--c-text-1);
 }
+
+@media (max-width: 768px) {
+    .message {
+        max-width: 88%;
+    }
+}
+
+/* На сенсорных экранах нет hover: действия должны оставаться доступными. */
+@media (hover: none) {
+    .actions {
+        max-width: 100%;
+        height: auto;
+        overflow-x: auto;
+        opacity: 1;
+    }
+
+    .reactionAction,
+    .action {
+        flex: 0 0 28px;
+    }
+}

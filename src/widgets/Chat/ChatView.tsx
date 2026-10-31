@@ -8,6 +8,7 @@ import { useScrollPosition } from './hooks/useScrollPosition';
 import { useAutoLoadHistory } from './hooks/useAutoLoadHistory';
 import { useMessageSend } from './hooks/useMessageSend';
 import { useMarkRead } from './hooks/useMarkRead';
+import { useRoomDraft } from './hooks/useRoomDraft';
 import { Avatar } from '../../shared/ui/Avatar';
 import MessageBubble from './MessageBubble';
 import { toTimelineItems } from './timelineItems';
@@ -17,19 +18,6 @@ import type { MessageView } from './messageView';
 
 interface Props {
     roomId: string;
-}
-
-/** Ответ на конкретное сообщение: на что отвечаем и как это показать. */
-interface ReplyDraft {
-    id: string;
-    senderName: string;
-    body: string;
-}
-
-/** Правка сообщения: id + старое тело, которое возвращаем в input при ошибке. */
-interface EditDraft {
-    id: string;
-    body: string;
 }
 
 const ChatView = ({ roomId }: Props) => {
@@ -62,14 +50,17 @@ const ChatView = ({ roomId }: Props) => {
     // прочтение: при открытии, при новых сообщениях (если внизу) и при доскролле вниз
     useMarkRead(room, isAtBottom, messages.length);
 
-    const [text, setText] = useState('');
+    // Текст, ответ и правка сохраняются отдельно для этой комнаты.
+    const {
+        text,
+        setText,
+        replyDraft,
+        setReplyDraft,
+        editDraft,
+        setEditDraft,
+    } = useRoomDraft(roomId, client.getUserId());
     // юзер пишет прямо сейчас — статус печати других показываем в подсказке
     const [inputFocused, setInputFocused] = useState(false);
-
-    // черновик ответа / правки: над полем ввода показывается полоска с
-    // «кто/что» + текст, крестик сбрасывает черновик
-    const [replyDraft, setReplyDraft] = useState<ReplyDraft | null>(null);
-    const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
 
     // компенсация скролла при пагинации: удерживаем ту же точку чтения
     useLayoutEffect(() => {

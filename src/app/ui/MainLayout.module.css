@@ -1,18 +1,21 @@
 .wrapper {
     display: grid;
-    grid-template-columns: 300px 1fr;   /* сайдбар 300px, контент — всё остальное */
+    grid-template-columns: 300px minmax(0, 1fr);
     height: 100vh;
+    height: 100dvh;
+    min-height: 0;
 }
-
 
 .sidebar {
     min-width: 0;
+    min-height: 0;
     overflow: hidden;
     padding: 4px;
 }
 
 .content {
     min-width: 0;
+    min-height: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -30,3 +33,45 @@
     line-height: 18px;
 }
 
+@media (max-width: 1024px) and (min-width: 769px) {
+    .wrapper {
+        grid-template-columns: 280px minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .wrapper {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+    }
+
+    .sidebar {
+        padding: 0;
+    }
+
+    /* В мобильной навигации одновременно видна только одна панель. */
+    .content {
+        display: none;
+    }
+
+    .roomOpen .sidebar {
+        display: none;
+    }
+
+    .roomOpen .content {
+        display: flex;
+    }
+
+    /* Настройки — исключение: сверху остаётся компактный выбор раздела. */
+    .settings {
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .settings .sidebar {
+        display: block;
+    }
+
+    .settings .content {
+        display: flex;
+    }
+}
