@@ -43,6 +43,7 @@ const makeEvent = (
     getContent: () => (opts.body !== undefined ? { body: opts.body } : {}),
     isRedacted: () => opts.redacted ?? false,
     getRoomId: () => opts.roomId ?? ROOM_ID,
+    getRelation: () => null,
 });
 
 const setup = (events: unknown[]) => {
@@ -53,6 +54,15 @@ const setup = (events: unknown[]) => {
         on: roomEvents.on,
         off: roomEvents.off,
         getLiveTimeline: () => ({ getEvents: () => events }),
+        findEventById: vi.fn(),
+        getUnfilteredTimelineSet: () => ({
+            relations: {
+                getChildEventsForEvent: vi.fn(() => ({ getSortedAnnotationsByKey: () => [] })),
+            },
+        }),
+        currentState: {
+            getMember: () => ({ name: '' }),
+        },
     };
     vi.mocked(getClient).mockReturnValue(clientEvents as unknown as ReturnType<typeof getClient>);
     const hook = renderHook(() => useRoomTimeline(room as never));
