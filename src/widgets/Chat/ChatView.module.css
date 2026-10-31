@@ -132,3 +132,67 @@
 .sendButton:not(:disabled):hover {
     filter: brightness(1.1);
 }
+
+/* полоска с черновиком ответа / правки над полем ввода */
+.contextBar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: var(--c-bg-soft);
+    border-top: 1px solid var(--c-border);
+    font-size: 13px;
+}
+
+.contextBarBody {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.contextBarLabel {
+    color: var(--c-brand);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.contextBarSender {
+    font-weight: 600;
+    color: var(--c-text-1);
+}
+
+.contextBarText {
+    color: var(--c-text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.contextBarCancel {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: var(--c-bg-elv);
+    color: var(--c-text-2);
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.contextBarCancel:hover {
+    background: var(--c-bg-soft);
+    color: var(--c-text-1);
+}
+
+.contextBarCancel:focus {
+    outline: none;
+    background: var(--c-bg-soft);
+    color: var(--c-text-1);
+}

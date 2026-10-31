@@ -13,9 +13,23 @@ import MessageBubble from './MessageBubble';
 import { toTimelineItems } from './timelineItems';
 import { SCROLL_LOAD_THRESHOLD } from './constants';
 import styles from './ChatView.module.css';
+import type { MessageView } from './messageView';
 
 interface Props {
     roomId: string;
+}
+
+/** Ответ на конкретное сообщение: на что отвечаем и как это показать. */
+interface ReplyDraft {
+    id: string;
+    senderName: string;
+    body: string;
+}
+
+/** Правка сообщения: id + старое тело, которое возвращаем в input при ошибке. */
+interface EditDraft {
+    id: string;
+    body: string;
 }
 
 const ChatView = ({ roomId }: Props) => {
@@ -44,13 +58,18 @@ const ChatView = ({ roomId }: Props) => {
     }, []);
     const { loading, loadMore } = useAutoLoadHistory(room, messages.length, messagesRef, onBeforeLoad);
 
-    const { send, typing } = useMessageSend(roomId);
+    const { send, edit, toggleReaction, typing } = useMessageSend(roomId);
     // прочтение: при открытии, при новых сообщениях (если внизу) и при доскролле вниз
     useMarkRead(room, isAtBottom, messages.length);
 
     const [text, setText] = useState('');
     // юзер пишет прямо сейчас — статус печати других показываем в подсказке
     const [inputFocused, setInputFocused] = useState(false);
+
+    // черновик ответа / правки: над полем ввода показывается полоска с
+    // «кто/что» + текст, крестик сбрасывает черновик
+    const [replyDraft, setReplyDraft] = useState<ReplyDraft | null>(null);
+    const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
 
     // компенсация скролла при пагинации: удерживаем ту же точку чтения
     useLayoutEffect(() => {
@@ -71,18 +90,60 @@ const ChatView = ({ roomId }: Props) => {
         if (el.scrollTop <= SCROLL_LOAD_THRESHOLD) loadMore(true);
     };
 
+    const handleScrollToReply = useCallback(
+        (messageId: string) => {
+            const el = messagesRef.current?.querySelector(`[data-event-id="${messageId}"]`) as HTMLElement | null;
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        },
+        [],
+    );
+
+    const handleReply = useCallback(
+        (view: MessageView) => {
+            setReplyDraft({ id: view.id, senderName: view.senderName, body: view.body });
+        },
+        [],
+    );
+
+    const handleEdit = useCallback(
+        (view: MessageView) => {
+            setEditDraft({ id: view.id, body: view.body });
+            setText(view.body);
+        },
+        [],
+    );
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const value = text.trim();
         if (!value) return;
+
+        // режим правки: content с m.replace, input очищаем после успеха
+        if (editDraft) {
+            const saved = text;
+            try {
+                await edit(editDraft.id, value);
+                setText('');
+                setEditDraft(null);
+            } catch {
+                setText(saved); // edit уже залогировал ошибку — вернули текст
+            }
+            return;
+        }
+
         setText('');
         typing('');
         // юзер сам пишет — хочет видеть своё сообщение
         forceScrollToBottom();
+        const replyTo = replyDraft ? { id: replyDraft.id, sender: replyDraft.senderName, body: replyDraft.body } : undefined;
+        setReplyDraft(null);
         try {
-            await send(value);
+            await send(value, replyTo);
         } catch {
-            setText(value); // send уже залогировал ошибку — вернули текст в input
+            setText(value); // send уже залогировал ошибку — вернули текст
+            if (replyDraft) {
+                setReplyDraft({ id: replyDraft.id, senderName: replyDraft.senderName, body: replyDraft.body });
+            }
         }
     };
 
@@ -97,7 +158,13 @@ const ChatView = ({ roomId }: Props) => {
     }
 
     const memberCount = room.getJoinedMemberCount();
-    const hint = `Написать в ${room.name || room.roomId}…`;
+    const hint = replyDraft
+        ? `Ответ на сообщение…`
+        : editDraft
+          ? `Редактирование…`
+          : inputFocused && typingStatus
+            ? typingStatus
+            : `Написать в ${room.name || room.roomId}…`;
 
     return (
         <div className={styles.wrapper}>
@@ -123,19 +190,72 @@ const ChatView = ({ roomId }: Props) => {
                     ) : (
                         // снимок видимых данных: пузырь чистовой, memo пропускает
                         // ре-рендеры, кроме изменившихся (например, расшифрованных)
-                        <MessageBubble key={item.id} {...item.view} grouped={item.grouped} />
+                        <MessageBubble
+                            key={item.id}
+                            message={item.view}
+                            grouped={item.grouped}
+                            onReply={handleReply}
+                            onEdit={handleEdit}
+                            onToggleReaction={(id, key) => {
+                                toggleReaction(id, key).catch(console.error);
+                            }}
+                            onReplyClick={handleScrollToReply}
+                        />,
                     ),
                 )}
                 <div ref={bottomRef} />
             </div>
 
+            {/* черновик ответа: цитата над полем ввода */}
+            {replyDraft && (
+                <div className={styles.contextBar}>
+                    <div className={styles.contextBarBody}>
+                        <span className={styles.contextBarSender}>{replyDraft.senderName}</span>
+                        <span className={styles.contextBarText}>{replyDraft.body}</span>
+                    </div>
+                    <button
+                        className={styles.contextBarCancel}
+                        onClick={() => setReplyDraft(null)}
+                        aria-label="Отменить ответ"
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
+
+            {/* черновик правки: та же полоска, но с пометкой */}
+            {editDraft && (
+                <div className={styles.contextBar}>
+                    <div className={styles.contextBarBody}>
+                        <span className={styles.contextBarLabel}>Правка</span>
+                        <span className={styles.contextBarText}>{editDraft.body}</span>
+                    </div>
+                    <button
+                        className={styles.contextBarCancel}
+                        onClick={() => {
+                            setEditDraft(null);
+                            setText('');
+                        }}
+                        aria-label="Отменить правку"
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
+
             <form className={styles.inputRow} onSubmit={handleSubmit}>
                 <input
                     className={styles.input}
                     type="text"
-                    placeholder={inputFocused && typingStatus ? typingStatus : hint}
+                    placeholder={hint}
                     value={text}
-                    onChange={(e) => { setText(e.target.value); typing(e.target.value); }}
+                    onChange={(e) => {
+                        setText(e.target.value);
+                        // не подаём сигнал печати во время правки
+                        if (!editDraft) {
+                            typing(e.target.value);
+                        }
+                    }}
                     onFocus={() => setInputFocused(true)}
                     onBlur={() => setInputFocused(false)}
                     autoFocus

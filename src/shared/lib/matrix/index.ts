@@ -36,6 +36,20 @@ export {
     createGroup,
     createChannel,
 } from './api/rooms';
+
+// Ответы, редактирование, реакции
+export {
+    sendReplyMessage,
+    editMessage,
+    toggleReaction,
+    buildEditContent,
+    buildReplyContent,
+    parseReplyBody,
+    trimReplyFromBody,
+    trimReplyFromFormattedBody,
+    getEventReactions,
+    getReactionContent,
+} from './api/messages';
 export { searchUsers, type UserSearchResult } from './api/users';
 export {
     createSpace,

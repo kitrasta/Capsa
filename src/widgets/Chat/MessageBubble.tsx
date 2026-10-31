@@ -1,11 +1,16 @@
 // Чистовой (презентационный) компонент пузыря сообщения: на вход — только
 // видимые данные (MessageView), никаких SDK-объектов. React.memo сравнивает
-// их поверхностно и пропускает ре-рендеры всех, кроме изменившегося пузыря.
-// Данные собирает toMessageView (messageView.ts).
+// их через sameMessageView и пропускает ре-рендеры всех, кроме изменившегося
+// пузыря. Данные собирает toMessageView (messageView.ts).
 import DOMPurify from 'dompurify';
 import { memo, useMemo } from 'react';
 import type { MessageView } from './messageView';
+import { sameMessageView } from './messageView';
 import styles from './MessageBubble.module.css';
+
+// Быстрые реакции в духе Telegram (реакции-иконки): добавляются сразу,
+// без выбора в отдельном меню.
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏', '👎'] as const;
 
 const formatTime = (ts: number): string =>
     new Date(ts).toLocaleTimeString('ru-RU', {
@@ -29,36 +34,102 @@ const sanitizeHtml = (html: string): string =>
         ALLOWED_URI_REGEXP: /^(?:https?:\/\/|mailto:|matrix:)/i,
     });
 
-const MessageBubble = memo(({ body, formattedBody, senderName, ts, sendStatus, isOwn, grouped }: MessageView & { grouped?: boolean }) => {
-    // санитайзинг — дорогой (парсинг DOM): гоняем только когда
-    // меняется сам HTML, а не на каждый ре-рендер ленты
-    const sanitizedHtml = useMemo(
-        () => (formattedBody ? sanitizeHtml(formattedBody) : null),
-        [formattedBody],
-    );
+interface MessageBubbleProps {
+    message: MessageView;
+    grouped?: boolean;
+    onReply?: (message: MessageView) => void;
+    onEdit?: (message: MessageView) => void;
+    onToggleReaction?: (messageId: string, key: string) => void;
+    onReplyClick?: (messageId: string) => void;
+}
 
-    return (
-        <div className={`${styles.message} ${isOwn ? styles.own : ''} ${grouped ? styles.grouped : ''}`}>
-            {!isOwn && !grouped && (
-                <div className={styles.senderName}>{senderName}</div>
-            )}
-            <div className={styles.bubble}>
-                {sanitizedHtml ? (
-                    <div
-                        className={styles.textHtml}
-                        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-                    />
-                ) : (
-                    <div className={styles.text}>{body}</div>
+// memo нужен для оптимизации: при пересчёте ленты (новая страница истории,
+// расшифровка, реакция/правка) перерисовываются только пузыри, которые
+// визуально изменились.
+const MessageBubble = memo(
+    ({ message, grouped, onReply, onEdit, onToggleReaction, onReplyClick }: MessageBubbleProps) => {
+        // санитайзинг — дорогой (парсинг DOM): гоняем только когда
+        // меняется сам HTML, а не на каждый ре-рендер ленты
+        const sanitizedHtml = useMemo(
+            () => (message.formattedBody ? sanitizeHtml(message.formattedBody) : null),
+            [message.formattedBody],
+        );
+
+        return (
+            <div
+                className={`${styles.message} ${message.isOwn ? styles.own : ''} ${grouped ? styles.grouped : ''}`}
+                data-event-id={message.id}
+            >
+                {!message.isOwn && !grouped && <div className={styles.senderName}>{message.senderName}</div>}
+
+                {message.replyTo && (
+                    <button
+                        className={styles.replyPreview}
+                        onClick={() => onReplyClick?.(message.id)}
+                        aria-label="Перейти к ответу"
+                    >
+                        <span className={styles.replyArrow}>↩</span>
+                        {message.replyTo.senderName && (
+                            <span className={styles.replySender}>{message.replyTo.senderName}</span>
+                        )}
+                        <span className={styles.replyBody}>{message.replyTo.body}</span>
+                    </button>
                 )}
-                <div className={styles.time}>
-                    {formatTime(ts)}
-                    {sendStatus && <span className={styles.status}>{sendStatus}</span>}
+
+                <div className={styles.bubble}>
+                    {sanitizedHtml ? (
+                        <div className={styles.textHtml} dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
+                    ) : (
+                        <div className={styles.text}>{message.body}</div>
+                    )}
+                    <div className={styles.time}>
+                        {formatTime(message.ts)}
+                        {message.isEdited && <span className={styles.edited}>изм.</span>}
+                        {message.sendStatus && <span className={styles.status}>{message.sendStatus}</span>}
+                    </div>
+                </div>
+
+                {message.reactions.length > 0 && (
+                    <div className={styles.reactions}>
+                        {message.reactions.map((reaction) => (
+                            <button
+                                key={reaction.key}
+                                className={`${styles.reactionButton} ${reaction.mine ? styles.mine : ''}`}
+                                onClick={() => onToggleReaction?.(message.id, reaction.key)}
+                                aria-pressed={reaction.mine}
+                            >
+                                <span>{reaction.key}</span>
+                                <span>{reaction.count}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                <div className={styles.actions}>
+                    {QUICK_REACTIONS.map((emoji) => (
+                        <button
+                            key={emoji}
+                            className={styles.reactionAction}
+                            onClick={() => onToggleReaction?.(message.id, emoji)}
+                            aria-label={`Добавить реакцию ${emoji}`}
+                        >
+                            {emoji}
+                        </button>
+                    ))}
+                    <button className={styles.action} onClick={() => onReply?.(message)} aria-label="Ответить">
+                        ↩
+                    </button>
+                    {message.canEdit && (
+                        <button className={styles.action} onClick={() => onEdit?.(message)} aria-label="Редактировать">
+                            ✏
+                        </button>
+                    )}
                 </div>
             </div>
-        </div>
-    );
-});
+        );
+    },
+    sameMessageView,
+);
 
 MessageBubble.displayName = 'MessageBubble';
 
