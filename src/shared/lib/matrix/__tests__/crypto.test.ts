@@ -99,17 +99,19 @@ describe('initCrypto: ошибки — это CryptoInitError', () => {
 });
 
 describe('initCrypto: happy path', () => {
-    it('поднимает крипто и включает cross-signing-ready', async () => {
+    it('не создаёт новые cross-signing ключи автоматически при запуске', async () => {
         const setDeviceIsolationMode = vi.fn();
+        const bootstrapCrossSigning = vi.fn(async () => {});
         const client = makeClient({
             getCrypto: vi.fn(() => ({
                 setDeviceIsolationMode,
-                isCrossSigningReady: vi.fn(async () => true),
-                bootstrapCrossSigning: vi.fn(async () => {}),
+                isCrossSigningReady: vi.fn(async () => false),
+                bootstrapCrossSigning,
             })),
         });
 
         await expect(initCrypto(client)).resolves.toBeUndefined();
         expect(setDeviceIsolationMode).toHaveBeenCalledTimes(1);
+        expect(bootstrapCrossSigning).not.toHaveBeenCalled();
     });
 });

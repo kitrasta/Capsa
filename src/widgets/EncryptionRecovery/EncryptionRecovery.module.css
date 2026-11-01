@@ -1,0 +1,166 @@
+.wrapper,
+.form,
+.verification,
+.success {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.intro {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    color: var(--c-brand);
+}
+
+.intro p {
+    color: var(--c-text-2);
+    font-size: 13px;
+    line-height: 19px;
+}
+
+.tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    background: var(--c-bg-soft);
+}
+
+.tab,
+.tabActive {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 38px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--c-text-2);
+    cursor: pointer;
+}
+
+.tabActive {
+    background: var(--c-bg-elv);
+    color: var(--c-text-1);
+}
+
+.form label {
+    color: var(--c-text-1);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-bg-soft);
+    color: var(--c-text-1);
+    line-height: 20px;
+    resize: vertical;
+}
+
+.input:focus {
+    border-color: var(--c-brand);
+    outline: none;
+}
+
+.hint {
+    color: var(--c-text-2);
+    font-size: 13px;
+    line-height: 19px;
+}
+
+.primaryButton,
+.secondaryButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.primaryButton {
+    border: 1px solid var(--c-brand);
+    background: var(--c-brand);
+    color: var(--c-bg);
+}
+
+.primaryButton:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.secondaryButton {
+    border: 1px solid var(--c-border);
+    background: transparent;
+    color: var(--c-text-1);
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+.actions > button {
+    flex: 1;
+}
+
+.error {
+    color: var(--c-danger, #e5484d);
+    font-size: 13px;
+    line-height: 18px;
+}
+
+.spinner {
+    animation: spin 0.8s linear infinite;
+}
+
+.sasGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    background: var(--c-bg-soft);
+}
+
+.sasGrid span {
+    font-size: 28px;
+    text-align: center;
+}
+
+.success {
+    align-items: center;
+    padding: 8px 0;
+    color: var(--c-text-1);
+    line-height: 21px;
+    text-align: center;
+}
+
+.successIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--c-bg-soft);
+    color: var(--c-brand);
+}
+
+.success .primaryButton {
+    align-self: stretch;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
