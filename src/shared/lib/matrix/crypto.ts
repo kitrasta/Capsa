@@ -93,16 +93,10 @@ export const initCrypto = async (client: MatrixClient): Promise<void> => {
     // без верификации устройств сообщения всё равно доставляются
     crypto.setDeviceIsolationMode(new AllDevicesIsolationMode(false));
 
-    // cross-signing: если на сервере уже есть ключи — доверяем им;
-    // для нового аккаунта бутстрап не критичен (шифрование работает и так)
-    if (!(await crypto.isCrossSigningReady())) {
-        try {
-            await crypto.bootstrapCrossSigning({});
-        } catch {
-            // бутстрап требует UIA (пароль) — не блокируем запуск,
-            // устройства будут «непроверенными», но E2EE работает
-        }
-    }
+    // Cross-signing здесь намеренно НЕ bootstrap'им автоматически. Для
+    // существующего аккаунта без recovery key SDK мог бы создать новые
+    // локальные ключи вместо восстановления старых из Secret Storage.
+    // Восстановление выполняется явно через EncryptionRecoveryGate.
 };
 
 // миграция: до scoped-именования крипто-база называлась просто 'capsa-crypto'.

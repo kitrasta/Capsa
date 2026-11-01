@@ -26,6 +26,10 @@ vi.mock('../../widgets/Settings/SettingsMenu', () => ({
     default: () => <div>Settings menu</div>,
 }));
 
+vi.mock('../../widgets/EncryptionRecovery/EncryptionRecovery', () => ({
+    default: () => null,
+}));
+
 import MainLayout from './MainLayout';
 import styles from './MainLayout.module.css';
 import {

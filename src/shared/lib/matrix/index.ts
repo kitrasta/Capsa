@@ -63,6 +63,15 @@ export { setDisplayName, setAvatar } from './api/profile';
 // разовая очистка крипто-базы старого формата при старте
 export { cleanupLegacyCryptoStore } from './crypto';
 
+// Одноразовое восстановление E2EE на новом устройстве
+export {
+    getEncryptionRecoveryStatus,
+    recoverEncryptionWithKey,
+    restoreKeysAfterVerification,
+    requestOwnDeviceVerification,
+    type EncryptionRecoveryStatus,
+} from './encryption-recovery';
+
 // Классификатор ошибок (errors.ts): наружу — то, чем UI реально пользуется
 // для различения ошибок входа (конфигурация ≠ неверный пароль ≠ сеть).
 export { isForbiddenError, matrixErrorMessage } from './errors';

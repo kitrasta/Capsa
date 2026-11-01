@@ -14,6 +14,11 @@ import {
     ROOM_STORE_DB_NAME,
 } from './storage';
 import { initCrypto, cryptoDbNamesForUser } from './crypto';
+import {
+    cacheSecretStorageKey,
+    clearSecretStorageKey,
+    getSecretStorageKey,
+} from './secret-storage-key';
 import { requireHomeserverUrl } from './config';
 
 // адрес homeserver'а и server_name — в config.ts (без зависимостей от SDK);
@@ -36,6 +41,10 @@ export const initClient = async (session: MatrixSession): Promise<MatrixClient> 
         userId: session.userId,
         deviceId: session.deviceId,
         store,
+        cryptoCallbacks: {
+            getSecretStorageKey,
+            cacheSecretStorageKey,
+        },
     });
     await initCrypto(client);
     return client;
@@ -61,6 +70,7 @@ export const startClient = async (): Promise<void> => {
 // M_UNKNOWN_TOKEN — токен уже отозван, звонить на сервер бессмысленно.
 // Данные (комнаты, крипто-ключи) не трогаем: пользователь может войти снова.
 export const stopClient = async (): Promise<void> => {
+    clearSecretStorageKey();
     if (client) {
         client.stopClient();
         client = null;
@@ -74,6 +84,7 @@ export const stopClient = async (): Promise<void> => {
 
 // выход: останавливаем клиент, чистим localStorage и IndexedDB
 export const logout = async (): Promise<void> => {
+    clearSecretStorageKey();
     const matrixClient = getClient();
     // захватываем userId ДО сброса синглтона: без клиента его не взять
     const userId = matrixClient.getUserId();
