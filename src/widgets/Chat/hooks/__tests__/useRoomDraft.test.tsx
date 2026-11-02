@@ -23,6 +23,7 @@ describe('useRoomDraft', () => {
             first.result.current.setText('Черновик');
             first.result.current.setReplyDraft({
                 id: '$reply',
+                senderId: '@alice:capsachat.org',
                 senderName: 'Alice',
                 body: 'Исходное сообщение',
             });
@@ -35,6 +36,7 @@ describe('useRoomDraft', () => {
         expect(second.result.current.text).toBe('Черновик');
         expect(second.result.current.replyDraft).toEqual({
             id: '$reply',
+            senderId: '@alice:capsachat.org',
             senderName: 'Alice',
             body: 'Исходное сообщение',
         });
@@ -68,6 +70,27 @@ describe('useRoomDraft', () => {
         );
 
         expect(otherAccount.result.current.text).toBe('');
+    });
+
+    it('отбрасывает legacy-ответ без senderId, но сохраняет текст', () => {
+        const key = `capsa.chat-draft.${encodeURIComponent(USER)}.${encodeURIComponent(ROOM_A)}`;
+        localStorage.setItem(
+            key,
+            JSON.stringify({
+                text: 'Незавершённый ответ',
+                replyDraft: {
+                    id: '$legacy-reply',
+                    senderName: 'Alice',
+                    body: 'Исходное сообщение',
+                },
+                editDraft: null,
+            }),
+        );
+
+        const { result } = renderHook(() => useRoomDraft(ROOM_A, USER));
+
+        expect(result.current.text).toBe('Незавершённый ответ');
+        expect(result.current.replyDraft).toBeNull();
     });
 
     it('удаляет запись после полной очистки черновика', () => {

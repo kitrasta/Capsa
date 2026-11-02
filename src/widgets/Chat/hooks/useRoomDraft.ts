@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 export interface ReplyDraft {
     id: string;
+    senderId: string;
     senderName: string;
     body: string;
 }
@@ -31,6 +32,7 @@ const isReplyDraft = (value: unknown): value is ReplyDraft => {
     const draft = value as Partial<ReplyDraft>;
     return (
         typeof draft.id === 'string' &&
+        typeof draft.senderId === 'string' &&
         typeof draft.senderName === 'string' &&
         typeof draft.body === 'string'
     );

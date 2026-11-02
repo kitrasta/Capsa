@@ -14,6 +14,7 @@ const baseView = (id: string, body: string): MessageView => ({
     id,
     body,
     formattedBody: null,
+    senderId: '@alice:capsachat.org',
     senderName: 'Alice',
     ts: 1700000000000,
     sendStatus: null,
@@ -108,17 +109,21 @@ describe('MessageBubble: обновления', () => {
 describe('toMessageView', () => {
     const makeEvent = (
         content: Record<string, unknown>,
-        opts: { sender?: string; ts?: number } = {},
+        opts: {
+            sender?: string;
+            ts?: number;
+            relation?: Record<string, unknown>;
+        } = {},
     ) =>
         ({
             getId: () => '$event1',
-            getSender: () => opts.sender ?? '@alice:example.org',
+            getSender: () => opts.sender ?? '@alice:capsachat.org',
             getTs: () => opts.ts ?? 1700000000000,
             getContent: () => content,
-            getRelation: () => undefined,
+            getRelation: () => opts.relation,
             replacingEventId: () => undefined,
             isRedacted: () => false,
-            replyEventId: undefined,
+            replyEventId: opts.relation?.['m.in_reply_to'],
             status: undefined,
         }) as unknown as MatrixEvent;
 
@@ -141,13 +146,14 @@ describe('toMessageView', () => {
                 formatted_body: '<b>hi</b>',
             }),
             makeRoom('Alice'),
-            '@alice:example.org',
+            '@alice:capsachat.org',
         );
 
         expect(view).toEqual({
             id: '$event1',
             body: 'hello',
             formattedBody: '<b>hi</b>',
+            senderId: '@alice:capsachat.org',
             senderName: 'Alice',
             ts: 1700000000000,
             sendStatus: null,
@@ -162,9 +168,45 @@ describe('toMessageView', () => {
     it('без имени участника показывает senderId; sendStatus только у своих', () => {
         const view = toMessageView(makeEvent({ body: 'x' }), makeRoom(), '@me:example.org');
 
-        expect(view.senderName).toBe('@alice:example.org');
+        expect(view.senderId).toBe('@alice:capsachat.org');
+        expect(view.senderName).toBe('@alice:capsachat.org');
         expect(view.formattedBody).toBeNull();
         expect(view.sendStatus).toBeNull();
         expect(view.isOwn).toBe(false);
     });
+
+    it('сохраняет MXID отдельно от display name и разрешает правку собственного ответа', () => {
+        const view = toMessageView(
+            makeEvent(
+                { msgtype: 'm.text', body: 'Ответ' },
+                {
+                    relation: {
+                        'm.in_reply_to': { event_id: '$original' },
+                    },
+                },
+            ),
+            makeRoom('Alice'),
+            '@alice:capsachat.org',
+        );
+
+        expect(view.senderId).toBe('@alice:capsachat.org');
+        expect(view.senderName).toBe('Alice');
+        expect(view.canEdit).toBe(true);
+    });
+
+    it.each(['m.replace', 'm.annotation'])(
+        'запрещает правку события со связью %s',
+        (relType) => {
+            const view = toMessageView(
+                makeEvent(
+                    { msgtype: 'm.text', body: 'Текст' },
+                    { relation: { rel_type: relType, event_id: '$target' } },
+                ),
+                makeRoom('Alice'),
+                '@alice:capsachat.org',
+            );
+
+            expect(view.canEdit).toBe(false);
+        },
+    );
 });
