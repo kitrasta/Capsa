@@ -39,6 +39,7 @@
 - `src/app/ui/ConnectionStatus.tsx`, `.module.css`, `.test.tsx` — индикатор восстановления соединения.
 - `src/widgets/Chat/__tests__/ChatView.test.tsx` — сохранение composer state при ошибках.
 - `src/widgets/Chat/hooks/useTimelineItems.ts` и тест — мемоизация derived timeline.
+- `src/widgets/Chat/hooks/useAutoLoadHistory.ts`, `src/widgets/Chat/ChatView.tsx` и `src/widgets/Chat/__tests__/ChatView.test.tsx` — сохранение scroll anchor при пагинации без лишней автозагрузки.
 - `scripts/deploy-web.sh`, `scripts/rollback-web.sh`, `deploy/Caddyfile`, `docs/deployment.md` — воспроизводимый release/rollback.
 
 ---
@@ -216,6 +217,42 @@ git add src/widgets/Chat/hooks/useTimelineItems.ts src/widgets/Chat/hooks/__test
 git commit -m "perf: memoize derived chat timeline"
 ```
 
+### Task 5A: Сохранять scroll anchor при пагинации
+
+**Files:**
+- Modify: `src/widgets/Chat/ChatView.tsx`
+- Modify: `src/widgets/Chat/hooks/useAutoLoadHistory.ts`
+- Test: `src/widgets/Chat/__tests__/ChatView.test.tsx`
+
+**Interfaces:**
+- Consumes: baseline blocker `pagination-anchor-verified`, существующие `useAutoLoadHistory()` и scroll-anchor compensation из `ChatView`.
+- Produces: одна ручная пагинация сохраняет viewport offset первого видимого события; автозагрузка не добавляет вторую страницу с `keepPosition=false`, пока восстанавливается anchor.
+
+- [ ] **Step 1: Написать failing regression test**
+
+В `ChatView.test.tsx` смоделировать scroll container и две доступные страницы истории. После ручного scroll к верху разрешить завершиться первой `scrollback`, оставив `scrollTop` у верхней границы до применения compensation. Проверить, что не выполняется вторая автоматическая `scrollback` с потерей позиции и что viewport offset исходного первого сообщения сохраняется после prepend.
+
+- [ ] **Step 2: Подтвердить падение**
+
+Run: `pnpm vitest run src/widgets/Chat/__tests__/ChatView.test.tsx`
+Expected: FAIL из-за повторной автозагрузки и/или смещения anchor, воспроизводящие baseline `anchorPixelDelta=1822px`.
+
+- [ ] **Step 3: Внести минимальное исправление**
+
+Сделать восстановление scroll anchor мгновенным, а не smooth-анимацией, и не запускать auto-fill с `keepPosition=false`, пока compensation не завершена. Не отключать автозаполнение действительно короткой ленты и не менять Matrix API или размер страницы.
+
+- [ ] **Step 4: Проверить регрессию и browser scenario**
+
+Run: `pnpm vitest run src/widgets/Chat/__tests__/ChatView.test.tsx && pnpm build`
+Expected: PASS. Повторить `pagination-anchor` из Task 1 на тех же данных: первая видимая строка сохраняет offset, `anchorPixelDelta=0px` после стабилизации, лишней страницы нет; записать наблюдение для Task 6.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/widgets/Chat/ChatView.tsx src/widgets/Chat/hooks/useAutoLoadHistory.ts src/widgets/Chat/__tests__/ChatView.test.tsx
+git commit -m "fix: preserve pagination scroll anchor"
+```
+
 ### Task 6: Проверить производительность и закрыть decision gates
 
 **Files:**
@@ -223,7 +260,7 @@ git commit -m "perf: memoize derived chat timeline"
 - Reference: `docs/mvp/baseline.md`, production build, browser profiles
 
 **Interfaces:**
-- Consumes: baseline и изменения Task 5.
+- Consumes: baseline и изменения Tasks 5 и 5A.
 - Produces: доказанное решение, достаточно ли текущей оптимизации; точные follow-up tasks для любого оставшегося blocker.
 
 - [ ] **Step 1: Повторить baseline на идентичных данных и условиях**
