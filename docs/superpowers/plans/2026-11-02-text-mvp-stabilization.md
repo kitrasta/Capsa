@@ -124,6 +124,7 @@ git commit -m "fix: preserve Matrix reply and edit semantics"
 - Create: `src/app/ui/ConnectionStatus.module.css`
 - Test: `src/app/ui/ConnectionStatus.test.tsx`
 - Modify: `src/app/ui/MainLayout.tsx`
+- Test: `src/app/ui/MainLayout.test.tsx` — добавить `getClient` в существующий Matrix-мock для нового компонента
 
 **Interfaces:**
 - Consumes: готовый singleton из `getClient()`, `ClientEvent.Sync`, `SyncState`.
