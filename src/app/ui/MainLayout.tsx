@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../../widgets/Sidebar/Sidebar';
 import SettingsMenu from '../../widgets/Settings/SettingsMenu';
 import EncryptionRecoveryGate from '../../widgets/EncryptionRecovery/EncryptionRecovery';
+import ConnectionStatus from './ConnectionStatus';
 import { useEffect, useSyncExternalStore } from 'react';
 import {
     getSession,
@@ -37,7 +38,10 @@ const MainLayout = () => {
                 <aside className={styles.sidebar}>
                     {isSettings ? <SettingsMenu /> : <Sidebar />}
                 </aside>
-                <main className={styles.content}><Outlet /></main>
+                <main className={styles.content}>
+                    <ConnectionStatus />
+                    <Outlet />
+                </main>
                 <EncryptionRecoveryGate />
             </div>
         )

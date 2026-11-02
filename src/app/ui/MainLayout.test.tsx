@@ -7,8 +7,10 @@ import {
     waitFor,
 } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import type { MatrixClient } from 'matrix-js-sdk';
 
 vi.mock('../../shared/lib/matrix', () => ({
+    getClient: vi.fn(),
     getSession: vi.fn(),
     cleanupLegacyCryptoStore: vi.fn(),
     matrixLifecycle: {
@@ -34,6 +36,7 @@ import MainLayout from './MainLayout';
 import styles from './MainLayout.module.css';
 import {
     cleanupLegacyCryptoStore,
+    getClient,
     getSession,
     matrixLifecycle,
 } from '../../shared/lib/matrix';
@@ -60,6 +63,11 @@ const renderDirectChatLink = () =>
 
 beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getClient).mockReturnValue({
+        getSyncState: () => null,
+        on: vi.fn(),
+        off: vi.fn(),
+    } as unknown as MatrixClient);
     vi.mocked(getSession).mockReturnValue(session);
     vi.mocked(cleanupLegacyCryptoStore).mockResolvedValue(undefined);
     vi.mocked(matrixLifecycle.start).mockResolvedValue(undefined);
