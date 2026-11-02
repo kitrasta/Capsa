@@ -92,7 +92,12 @@ const ChatView = ({ roomId }: Props) => {
 
     const handleReply = useCallback(
         (view: MessageView) => {
-            setReplyDraft({ id: view.id, senderName: view.senderName, body: view.body });
+            setReplyDraft({
+                id: view.id,
+                senderId: view.senderId,
+                senderName: view.senderName,
+                body: view.body,
+            });
         },
         [setReplyDraft],
     );
@@ -136,14 +141,21 @@ const ChatView = ({ roomId }: Props) => {
         typing('');
         // юзер сам пишет — хочет видеть своё сообщение
         forceScrollToBottom();
-        const replyTo = replyDraft ? { id: replyDraft.id, sender: replyDraft.senderName, body: replyDraft.body } : undefined;
+        const replyTo = replyDraft
+            ? { id: replyDraft.id, senderId: replyDraft.senderId, body: replyDraft.body }
+            : undefined;
         setReplyDraft(null);
         try {
             await send(value, replyTo);
         } catch {
             setText(value); // send уже залогировал ошибку — вернули текст
             if (replyDraft) {
-                setReplyDraft({ id: replyDraft.id, senderName: replyDraft.senderName, body: replyDraft.body });
+                setReplyDraft({
+                    id: replyDraft.id,
+                    senderId: replyDraft.senderId,
+                    senderName: replyDraft.senderName,
+                    body: replyDraft.body,
+                });
             }
         }
     };

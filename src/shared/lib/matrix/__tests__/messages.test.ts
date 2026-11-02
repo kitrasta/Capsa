@@ -61,13 +61,19 @@ describe('trimReplyFromFormattedBody', () => {
 });
 
 describe('buildReplyContent', () => {
-    it('строит content с цитатой и m.in_reply_to', () => {
-        const target = { id: '$r1', sender: '@alice:example.org', body: 'Привет' };
+    it('строит fallback по MXID, а не по отображаемому имени', () => {
+        const target = {
+            id: '$r1',
+            senderId: '@alice:capsachat.org',
+            senderName: 'Alice',
+            body: 'Привет',
+        };
         const content = buildReplyContent(target, 'В ответ: всё ок');
 
         expect(content.msgtype).toBe('m.text');
-        expect(content.body).toContain('> <@alice:example.org> Привет');
-        expect(content.body).toContain('В ответ: всё ок');
+        expect(content.body).toBe(
+            '> <@alice:capsachat.org> Привет\n\nВ ответ: всё ок',
+        );
         expect(content['m.relates_to']['m.in_reply_to'].event_id).toBe('$r1');
     });
 });

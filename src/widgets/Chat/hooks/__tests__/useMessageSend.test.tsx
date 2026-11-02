@@ -61,7 +61,7 @@ describe('useMessageSend: send', () => {
 describe('useMessageSend: reply', () => {
     it('отправляет ответ через Matrix API с m.in_reply_to', async () => {
         const { result } = render();
-        const target = { id: '$r1', sender: '@alice:example.org', body: 'Привет' };
+        const target = { id: '$r1', senderId: '@alice:example.org', body: 'Привет' };
 
         await act(async () => {
             await result.current.send('В ответ', target);
