@@ -10,9 +10,9 @@ import { useAutoLoadHistory } from './hooks/useAutoLoadHistory';
 import { useMessageSend } from './hooks/useMessageSend';
 import { useMarkRead } from './hooks/useMarkRead';
 import { useRoomDraft } from './hooks/useRoomDraft';
+import { useTimelineItems } from './hooks/useTimelineItems';
 import { Avatar } from '../../shared/ui/Avatar';
 import MessageBubble from './MessageBubble';
-import { toTimelineItems } from './timelineItems';
 import { SCROLL_LOAD_THRESHOLD } from './constants';
 import styles from './ChatView.module.css';
 import type { MessageView } from './messageView';
@@ -62,6 +62,11 @@ const ChatView = ({ roomId }: Props) => {
     } = useRoomDraft(roomId, client.getUserId());
     // юзер пишет прямо сейчас — статус печати других показываем в подсказке
     const [inputFocused, setInputFocused] = useState(false);
+
+    // производная лента мемоизирована: ввод/фокус/ответ/правка не
+    // пересчитывают все пузыри. Hook до условного return — иначе нарушится
+    // порядок хуков при появлении комнаты.
+    const timelineItems = useTimelineItems(messages, room, client.getUserId());
 
     // компенсация скролла при пагинации: удерживаем ту же точку чтения
     useLayoutEffect(() => {
@@ -197,7 +202,7 @@ const ChatView = ({ roomId }: Props) => {
 
             <div className={styles.messages} ref={messagesRef} onScroll={handleScroll}>
                 {loading && <div className={styles.historyLoader}>Загрузка истории…</div>}
-                {toTimelineItems(messages, room, client.getUserId()).map((item) =>
+                {timelineItems.map((item) =>
                     item.kind === 'date' ? (
                         <div key={item.id} className={styles.dateSeparator}>{item.label}</div>
                     ) : (
