@@ -64,7 +64,7 @@ const ChatView = ({ roomId }: Props) => {
 
     const { send, edit, toggleReaction, typing } = useMessageSend(roomId);
     // прочтение: при открытии, при новых сообщениях (если внизу) и при доскролле вниз
-    useMarkRead(room, isAtBottom, messages.length);
+    useMarkRead(room, isAtBottom, messages);
 
     // Текст, ответ и правка сохраняются отдельно для этой комнаты.
     const {

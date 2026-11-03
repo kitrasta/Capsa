@@ -7,6 +7,7 @@ import { getClient } from '../../../shared/lib/matrix';
 import { useRoomReady } from '../hooks/useRoomReady';
 import { useRoomTimeline } from '../hooks/useRoomTimeline';
 import { useAutoLoadHistory } from '../hooks/useAutoLoadHistory';
+import { useMarkRead } from '../hooks/useMarkRead';
 import type { EditDraft, ReplyDraft } from '../hooks/useRoomDraft';
 import ChatView from '../ChatView';
 
@@ -144,6 +145,40 @@ const makeMessage = (id: string, ts: number): MatrixEvent =>
         replyEventId: undefined,
         status: null,
     }) as unknown as MatrixEvent;
+
+describe('ChatView: read markers', () => {
+    it('передаёт messages array, включая same-length LocalEchoUpdated, в useMarkRead', () => {
+        const readRoom = {
+            ...room,
+            findEventById: () => null,
+            getUnfilteredTimelineSet: () => ({
+                relations: { getChildEventsForEvent: () => null },
+            }),
+            currentState: {
+                getMember: () => null,
+                on: vi.fn(),
+                off: vi.fn(),
+            },
+        } as unknown as Room;
+        const localMessages = [makeMessage('~local-transaction', 1)];
+        const sentMessages = [makeMessage('$server-echo', 1)];
+        vi.mocked(useRoomReady).mockReturnValue(readRoom);
+        vi.mocked(useRoomTimeline).mockReturnValue(localMessages);
+        const view = renderChat();
+
+        expect(useMarkRead).toHaveBeenLastCalledWith(readRoom, true, localMessages);
+
+        vi.mocked(useRoomTimeline).mockReturnValue(sentMessages);
+        view.rerender(
+            <MemoryRouter>
+                <ChatView roomId={ROOM_ID} />
+            </MemoryRouter>,
+        );
+
+        expect(sentMessages).toHaveLength(localMessages.length);
+        expect(useMarkRead).toHaveBeenLastCalledWith(readRoom, true, sentMessages);
+    });
+});
 
 describe('ChatView: composer drafts', () => {
     it('восстанавливает текст и активный reply draft после rejected send', async () => {
