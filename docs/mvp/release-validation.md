@@ -1,9 +1,117 @@
 # Text MVP: production release validation
 
 - Дата: **2026-11-03**
-- Статус: **BLOCKED — production rollout остановлен, pre-release Caddy state восстановлен**
-- Application/release commit: `fa250c8ef15148620dcc7955c970044cb25a24db`
-- Единственный созданный release ID: `20261103T092607Z-fa250c8`
+- Финальный статус: **DONE_WITH_CONCERNS — current-code production release активен**
+- Final application commit: `c25b8c7237a69a2105636225ddf88cb95a231d74`
+- Current-code releases: `20261103T102025Z-c25b8c7` и `20261103T104816Z-c25b8c7` (byte-identical)
+- **Final active release:** `20261103T104816Z-c25b8c7`
+- Initial evidence release: `20261103T092607Z-fa250c8` (pre-8A, сохранён, не считается previous UI)
+
+## Final rerun: automatic checks
+
+На чистом `c25b8c7` выполнено:
+
+```bash
+pnpm test && pnpm lint && pnpm build && git diff --check
+```
+
+- Node `v24.15.0`, pnpm `12.16.1`.
+- Vitest: **32/32 files, 203/203 tests PASS**, duration `4.39s`.
+- ESLint и TypeScript + Vite build: PASS, `2164 modules`, `451ms`.
+- `git diff --check`: PASS.
+- Production builds обоих deploy: PASS, `422ms` и `434ms`; оба содержат `index-Bp1cCRju.js`.
+- Сохранилось только известное предупреждение Vite о chunks больше 500 kB.
+
+## Final rerun: Caddy activation и persistence
+
+1. Первый current-code release опубликован до Caddy activation, как требует обновлённый runbook.
+2. Создан backup `/srv/capsa/caddy/Caddyfile.backup.20261103T102040Z`.
+3. Candidate прошёл `caddy validate`; после `install` выполнен `docker compose up -d --force-recreate caddy`.
+4. В новом container `cmp` подтвердил совпадение bind-mounted Caddyfile с candidate; `/srv/capsa-web/current/index.html` readable.
+5. Отдельный persistence gate повторно force-recreated **только Caddy**, повторно прошёл `cmp`/root checks и HTTP/Matrix checks.
+
+Synapse и PostgreSQL оставались running; их конфигурация и lifecycle не менялись. Compose лишь проверял dependency health при recreate Caddy.
+
+## Final rerun: HTTP и Matrix
+
+| Проверка | Результат |
+|---|---|
+| HTTPS `/` | PASS, exact 200 |
+| Прямой `/chats/health-check` | PASS, exact 200 |
+| `/index.html` | PASS, `Cache-Control: no-cache` |
+| `/assets/index-Bp1cCRju.js` | PASS, `Cache-Control: public, max-age=31536000, immutable` |
+| WASM | PASS, `Content-Type: application/wasm`; browser GET 200 |
+| Matrix client discovery | PASS, `https://matrix.capsachat.org` |
+| Matrix server discovery | PASS, `matrix.capsachat.org:443` |
+| Matrix client versions | PASS, 200 |
+| Все основные HTTP/Matrix gates после persistence recreate | PASS |
+| `/`, nested route и current asset после обоих switch directions | PASS |
+
+## Final rerun: browser smoke
+
+Использованы saved synthetic sessions из Task 1 **и** новые dedicated test-only accounts/devices для password login и recovery. Созданы только synthetic rooms/messages/profile/account-data/key-backup fixtures; server configuration и реальные пользовательские данные не использовались. Secrets хранились только в mode-0600 gitignored materials и не включены в документацию.
+
+| Сценарий | Финальный результат |
+|---|---|
+| Password login | PASS на dedicated A/B и clean E2EE account; начальный 429 B обработан ожиданием advertised retry-after, затем PASS |
+| Session restore + nested-route refresh | PASS на saved и dedicated sessions |
+| Encrypted DM creation через UI | PASS, lock indicator и 2 участника |
+| DM send/receive A ↔ B | PASS в обоих направлениях |
+| Group creation/search/membership | PASS; group имеет 2 участника |
+| Group live receive | PASS |
+| Draft restore после reload и последующий send | PASS |
+| Reply + MXID fallback + preview | PASS |
+| Edit, включая reply event | PASS, `изм.` сохраняется после reload |
+| Reaction add/render | PASS, включая mobile touch action |
+| Unread → open/read | PASS: badge `1` очищается |
+| Read state после reload | PASS, badge остаётся очищенным |
+| Visible at-bottom live receive | PASS, message rendered без unread badge |
+| Read-marker local-ID/404 regression | PASS: `Failed to mark room as read` и read-marker 404 отсутствуют |
+| Offline → reconnect | PASS: banner появился offline, исчез online, следующий encrypted send PASS |
+| E2EE/recovery | PASS: recovery key accepted, encrypted history readable, recovery gate не вернулся после reload |
+| Encrypted live send | PASS до и после reconnect |
+| Mobile 390×844, DPR 2, mobile/touch | PASS: нет horizontal overflow, composer/back control видимы, touch menu/reaction PASS |
+| Final post-switch smoke | PASS: group, edited reply, read state, encrypted history, sessions и mobile restore |
+
+Clean recovery flow сообщил `Готово. Восстановлено ключей: 0`; это значение не переинтерпретируется как nonzero import. При этом recovery завершился, preloaded encrypted history была readable, а persisted recovery и новые encrypted sends прошли.
+
+## Final rerun: две версии и rollback
+
+- Первый current-code release: `20261103T102025Z-c25b8c7`.
+- Второй current-code release: `20261103T104816Z-c25b8c7`.
+- `diff -qr` между release directories: без различий; production asset names совпадают.
+- После второго deploy `current` указывал на второй release.
+- `scripts/rollback-web.sh 20261103T102025Z-c25b8c7`: PASS; HTTP и asset checks PASS.
+- `scripts/rollback-web.sh 20261103T104816Z-c25b8c7`: PASS; final `/`, nested route и asset checks PASS.
+- **Final `current`: `releases/20261103T104816Z-c25b8c7`.**
+- Initial `20261103T092607Z-fa250c8` не удалён и не использовался как валидный previous UI.
+
+## Performance comparison reference
+
+Новый статистический production performance benchmark не выполнялся. Метод и сравнения сохранены в:
+
+- `docs/mvp/baseline.md` — исходные startup/interaction metrics;
+- `docs/mvp/performance.md` — Task 6 comparison и прежний stale-anchor defect;
+- Task 5B evidence — 88→128 messages, одна page, immediate/settled anchor delta `0px`, extra pages `0`.
+
+Task 8 валидирует delivery, cache/WASM, functionality, release switching и persistence, но не заявляет нового performance улучшения.
+
+## Final known concerns
+
+1. Saved Task 1 device IDs в свежих crypto stores по-прежнему вызывают repeated one-time-key HTTP 400. Dedicated fresh devices и clean E2EE/recovery прошли; отдельный follow-up нужен для saved-device reuse после очистки site data.
+2. Recovery UI сообщил zero imported keys; successful recovery/persistence и readable encrypted history подтверждены, но nonzero backup import отдельно не заявлен.
+3. Offline emulation и начальный login 429 создали ожидаемые console network errors; optional Matrix endpoints также дали non-blocking 404 resource logs.
+4. Большой main/WASM chunk остаётся известным предупреждением; новых performance measurements нет.
+
+Открытых release blockers в финальном rerun не осталось. GitHub push не выполнялся.
+
+---
+
+## Historical record: initial BLOCKED rollout
+
+- Initial application/release commit: `fa250c8ef15148620dcc7955c970044cb25a24db`
+- Initial release ID: `20261103T092607Z-fa250c8`
+- Initial status: **BLOCKED**, pre-release Caddy state был восстановлен
 
 Это первая попытка versioned web release. Предыдущего UI release не существовало. Второй release и переключение между IDs не выполнялись после обнаружения release blocker; несуществующий прежний UI не выдумывался.
 
