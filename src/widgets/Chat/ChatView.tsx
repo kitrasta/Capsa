@@ -37,14 +37,22 @@ const ChatView = ({ roomId }: Props) => {
 
     const messagesRef = useRef<HTMLDivElement>(null);
     // позиция до подгрузки истории: {scrollHeight, scrollTop}
-    const scrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+    const scrollAnchorRef = useRef<{
+        scrollHeight: number;
+        scrollTop: number;
+        messagesLength: number;
+    } | null>(null);
 
     // захват якоря перед подгрузкой; компенсация — в useLayoutEffect ниже
     const onBeforeLoad = useCallback((keepPosition: boolean) => {
         const el = messagesRef.current;
         if (!el || !keepPosition) return;
-        scrollAnchorRef.current = { scrollHeight: el.scrollHeight, scrollTop: el.scrollTop };
-    }, []);
+        scrollAnchorRef.current = {
+            scrollHeight: el.scrollHeight,
+            scrollTop: el.scrollTop,
+            messagesLength: messages.length,
+        };
+    }, [messages.length]);
     const isAnchorPending = useCallback(() => scrollAnchorRef.current !== null, []);
     const { loading, loadMore } = useAutoLoadHistory(
         room,
@@ -85,7 +93,9 @@ const ChatView = ({ roomId }: Props) => {
         const el = messagesRef.current;
         const anchor = scrollAnchorRef.current;
         if (!el || !anchor) return;
-        const grew = el.scrollHeight > anchor.scrollHeight;
+        // loading indicator тоже увеличивает scrollHeight, но не является prepend
+        const prepended = messages.length > anchor.messagesLength;
+        const grew = prepended && el.scrollHeight > anchor.scrollHeight;
         if (grew) {
             el.scrollTo({
                 top: anchor.scrollTop + (el.scrollHeight - anchor.scrollHeight),

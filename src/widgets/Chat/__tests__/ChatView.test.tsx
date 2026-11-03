@@ -321,6 +321,84 @@ describe('ChatView: pagination scroll anchor', () => {
         expect(anchorElement.getBoundingClientRect().top).toBe(128);
     });
 
+    it('не принимает 26px loading indicator за prepend и сохраняет anchor до сообщений', async () => {
+        const anchor = makeMessage('$anchor', 2);
+        let timeline = [anchor, makeMessage('$last', 3)];
+        const paginationRoom = {
+            ...room,
+            oldState: { paginationToken: 'page-2' },
+            getLiveTimeline: () => ({ getEvents: () => timeline }),
+            findEventById: () => null,
+            getUnfilteredTimelineSet: () => ({
+                relations: { getChildEventsForEvent: () => null },
+            }),
+            currentState: {
+                getMember: () => ({ name: 'Alice' }),
+                on: vi.fn(),
+                off: vi.fn(),
+            },
+        } as unknown as Room;
+        vi.mocked(useRoomReady).mockReturnValue(paginationRoom);
+        vi.mocked(useRoomTimeline).mockImplementation(() => timeline);
+        const { useAutoLoadHistory: realUseAutoLoadHistory } = await vi.importActual<
+            typeof import('../hooks/useAutoLoadHistory')
+        >('../hooks/useAutoLoadHistory');
+        vi.mocked(useAutoLoadHistory).mockImplementation(realUseAutoLoadHistory);
+
+        let scrollTop = 200;
+        let scrollHeight = 600;
+        const firstPage = deferred();
+        const scrollback = vi.fn()
+            .mockImplementationOnce(async () => {
+                // Loading chrome появляется после capture, но до prepend сообщений.
+                scrollHeight = 626;
+                await firstPage.promise;
+                timeline = [makeMessage('$older-1', 0), makeMessage('$older-2', 1), ...timeline];
+                paginationRoom.oldState.paginationToken = 'page-1';
+            })
+            .mockImplementation(() => new Promise<void>(() => {}));
+        vi.mocked(getClient).mockReturnValue({
+            getUserId: () => USER_ID,
+            scrollback,
+        } as unknown as MatrixClient);
+
+        vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(300);
+        vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(() => scrollHeight);
+        vi.spyOn(Element.prototype, 'scrollTop', 'get').mockImplementation(() => scrollTop);
+        vi.spyOn(Element.prototype, 'scrollTop', 'set').mockImplementation(() => {});
+        const view = renderChat();
+        const container = document.querySelector('[class*="_messages_"]') as HTMLDivElement;
+        container.scrollTo = vi.fn(({ top, behavior }: ScrollToOptions) => {
+            if (behavior === 'instant') scrollTop = top ?? 0;
+        }) as typeof container.scrollTo;
+        const anchorElement = container.querySelector('[data-event-id="$anchor"]') as HTMLElement;
+        anchorElement.getBoundingClientRect = () =>
+            ({ top: 128 + (scrollHeight - 600) - scrollTop }) as DOMRect;
+
+        await act(async () => {});
+        scrollTop = 0;
+        fireEvent.scroll(container);
+        await waitFor(() => expect(scrollback).toHaveBeenCalledTimes(1));
+        expect(screen.getByText('Загрузка истории…')).toBeTruthy();
+        expect(container.scrollTo).not.toHaveBeenCalledWith({ top: 26, behavior: 'instant' });
+
+        scrollHeight = 1100;
+        await act(async () => {
+            firstPage.resolve();
+            await firstPage.promise;
+        });
+        view.rerender(
+            <MemoryRouter>
+                <ChatView roomId={ROOM_ID} />
+            </MemoryRouter>,
+        );
+        await act(async () => {});
+
+        expect(container.scrollTop).toBe(500);
+        expect(anchorElement.getBoundingClientRect().top).toBe(128);
+        expect(scrollback).toHaveBeenCalledTimes(1);
+    });
+
     const renderStaleAnchorHarness = async (scrollback: ReturnType<typeof vi.fn>) => {
         const initialTimeline = [makeMessage('$anchor', 2), makeMessage('$last', 3)];
         let currentTimeline = initialTimeline;
