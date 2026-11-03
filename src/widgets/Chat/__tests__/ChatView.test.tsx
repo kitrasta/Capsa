@@ -320,4 +320,127 @@ describe('ChatView: pagination scroll anchor', () => {
         expect(container.scrollTop).toBe(500);
         expect(anchorElement.getBoundingClientRect().top).toBe(128);
     });
+
+    const renderStaleAnchorHarness = async (scrollback: ReturnType<typeof vi.fn>) => {
+        const initialTimeline = [makeMessage('$anchor', 2), makeMessage('$last', 3)];
+        let currentTimeline = initialTimeline;
+        let currentRoom = {
+            ...room,
+            oldState: { paginationToken: 'page-2' },
+            getLiveTimeline: () => ({ getEvents: () => currentTimeline }),
+            findEventById: () => null,
+            getUnfilteredTimelineSet: () => ({
+                relations: { getChildEventsForEvent: () => null },
+            }),
+            currentState: {
+                getMember: () => ({ name: 'Alice' }),
+                on: vi.fn(),
+                off: vi.fn(),
+            },
+        } as unknown as Room;
+        vi.mocked(useRoomReady).mockImplementation(() => currentRoom);
+        vi.mocked(useRoomTimeline).mockImplementation(() => currentTimeline);
+        const { useAutoLoadHistory: realUseAutoLoadHistory } = await vi.importActual<
+            typeof import('../hooks/useAutoLoadHistory')
+        >('../hooks/useAutoLoadHistory');
+        vi.mocked(useAutoLoadHistory).mockImplementation(realUseAutoLoadHistory);
+        vi.mocked(getClient).mockReturnValue({
+            getUserId: () => USER_ID,
+            scrollback,
+        } as unknown as MatrixClient);
+
+        const geometry = { scrollTop: 200, scrollHeight: 600, clientHeight: 300 };
+        vi.spyOn(Element.prototype, 'clientHeight', 'get').mockImplementation(
+            () => geometry.clientHeight,
+        );
+        vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(
+            () => geometry.scrollHeight,
+        );
+        vi.spyOn(Element.prototype, 'scrollTop', 'get').mockImplementation(
+            () => geometry.scrollTop,
+        );
+        vi.spyOn(Element.prototype, 'scrollTop', 'set').mockImplementation(() => {});
+        const view = renderChat();
+        const container = document.querySelector('[class*="_messages_"]') as HTMLDivElement;
+        container.scrollTo = vi.fn(({ top, behavior }: ScrollToOptions) => {
+            if (behavior === 'instant') geometry.scrollTop = top ?? 0;
+        }) as typeof container.scrollTo;
+        await act(async () => {});
+        expect(scrollback).not.toHaveBeenCalled();
+
+        return {
+            container,
+            geometry,
+            startManualPagination: () => {
+                geometry.scrollTop = 0;
+                fireEvent.scroll(container);
+            },
+            changeRoom: (nextRoom: Room, nextTimeline: MatrixEvent[], nextRoomId: string) => {
+                currentRoom = nextRoom;
+                currentTimeline = nextTimeline;
+                view.rerender(
+                    <MemoryRouter>
+                        <ChatView roomId={nextRoomId} />
+                    </MemoryRouter>,
+                );
+            },
+        };
+    };
+
+    it('после failed pagination очищает stale anchor и возобновляет auto-fill', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const scrollback = vi.fn()
+            .mockRejectedValueOnce(new Error('network down'))
+            .mockImplementationOnce(async (targetRoom: Room) => {
+                targetRoom.oldState.paginationToken = null;
+            });
+        const { startManualPagination } = await renderStaleAnchorHarness(scrollback);
+
+        startManualPagination();
+        await waitFor(() => expect(scrollback).toHaveBeenCalledTimes(1));
+        await act(async () => {});
+
+        expect(scrollback).toHaveBeenCalledTimes(2);
+    });
+
+    it('при смене комнаты не переносит pending anchor в короткую ленту', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const firstPage = deferred();
+        const scrollback = vi.fn()
+            .mockImplementationOnce(() => firstPage.promise)
+            .mockImplementationOnce(async (targetRoom: Room) => {
+                targetRoom.oldState.paginationToken = null;
+            });
+        const { geometry, startManualPagination, changeRoom } =
+            await renderStaleAnchorHarness(scrollback);
+        startManualPagination();
+        await waitFor(() => expect(scrollback).toHaveBeenCalledTimes(1));
+
+        const shortTimeline = [makeMessage('$short', 10)];
+        const shortRoom = {
+            ...room,
+            roomId: '!short:example.org',
+            oldState: { paginationToken: 'short-page' },
+            getLiveTimeline: () => ({ getEvents: () => shortTimeline }),
+            findEventById: () => null,
+            getUnfilteredTimelineSet: () => ({
+                relations: { getChildEventsForEvent: () => null },
+            }),
+            currentState: {
+                getMember: () => ({ name: 'Alice' }),
+                on: vi.fn(),
+                off: vi.fn(),
+            },
+        } as unknown as Room;
+        geometry.scrollHeight = 250;
+        geometry.scrollTop = 0;
+        changeRoom(shortRoom, shortTimeline, shortRoom.roomId);
+        await act(async () => {
+            firstPage.reject(new Error('room changed'));
+        });
+        await act(async () => {});
+
+        expect(scrollback).toHaveBeenCalledTimes(2);
+        expect(scrollback).toHaveBeenLastCalledWith(shortRoom, 40);
+    });
 });
