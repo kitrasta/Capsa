@@ -131,6 +131,22 @@ describe('useRoomListItem: непрочитанные', () => {
         expect(getEventReadUpTo).not.toHaveBeenCalled();
     });
 
+    it('RoomEvent.UnreadNotifications обновляет badge после SDK setUnreadNotificationCount', () => {
+        let serverUnread = 3;
+        const { hook, emitRoom } = setup({
+            get serverUnread() {
+                return serverUnread;
+            },
+        });
+        expect(hook.result.current.unread).toBe(3);
+
+        serverUnread = 0;
+        emitRoom(RoomEvent.UnreadNotifications);
+
+        expect(hook.result.current.unread).toBe(0);
+        expect(hook.result.current.hasUnread).toBe(false);
+    });
+
     it('серверный счётчик 0 — валидный результат, fallback не нужен', () => {
         const { hook, getEventReadUpTo } = setup({
             serverUnread: 0,
