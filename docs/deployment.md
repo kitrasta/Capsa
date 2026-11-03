@@ -23,25 +23,46 @@ VITE_MATRIX_SERVER_NAME=capsachat.org
 
 ## Одноразовое обновление Caddy
 
-Выполняется один раз перед первым versioned deploy. Команды создают backup, проверяют именно новый файл в существующем container и только затем заменяют running config и делают reload.
+Выполняется один раз при первом versioned deploy после публикации release по инструкции ниже, но до HTTP health checks. `/etc/caddy/Caddyfile` — single-file bind mount: `install` заменяет inode на host, а running container продолжает видеть прежний inode. Поэтому reload после install не активирует candidate. Команды ниже создают backup, проверяют candidate, заменяют host-файл и пересоздают только Caddy, затем проверяют активный config и web root внутри нового container.
 
 ```bash
 scp deploy/Caddyfile "$CAPSA_DEPLOY_TARGET:/tmp/capsa-Caddyfile.new"
 ssh "$CAPSA_DEPLOY_TARGET" '
   set -eu
+  cd /srv/capsa
   backup="/srv/capsa/caddy/Caddyfile.backup.$(date -u +%Y%m%dT%H%M%SZ)"
   cp /srv/capsa/caddy/Caddyfile "$backup"
+  printf "Caddy backup: %s\n" "$backup"
   docker cp /tmp/capsa-Caddyfile.new capsa-caddy-1:/tmp/capsa-Caddyfile.new
   docker exec capsa-caddy-1 caddy validate --adapter caddyfile --config /tmp/capsa-Caddyfile.new
   install -m 0644 /tmp/capsa-Caddyfile.new /srv/capsa/caddy/Caddyfile
-  docker exec capsa-caddy-1 caddy reload --adapter caddyfile --config /etc/caddy/Caddyfile
+  docker compose up -d --force-recreate caddy
+  docker cp /tmp/capsa-Caddyfile.new capsa-caddy-1:/tmp/capsa-Caddyfile.new
+  docker exec capsa-caddy-1 cmp /tmp/capsa-Caddyfile.new /etc/caddy/Caddyfile
+  docker exec capsa-caddy-1 test -r /srv/capsa-web/current/index.html
   rm -f /tmp/capsa-Caddyfile.new
   docker exec capsa-caddy-1 rm -f /tmp/capsa-Caddyfile.new
-  printf "Caddy backup: %s\n" "$backup"
 '
 ```
 
-Если validate завершился с ошибкой, running Caddyfile не заменяется. Не перезапускайте Synapse или PostgreSQL.
+`cmp` подтверждает, что новый bind mount содержит именно validated candidate; `test` подтверждает доступность активного root `/srv/capsa-web/current` внутри Caddy. Если validate завершился с ошибкой, running Caddyfile не заменяется. Не перезапускайте Synapse или PostgreSQL.
+
+Если любой шаг после `install`, включая recreate, проверки config/root или последующие HTTP health checks, завершился ошибкой, восстановите напечатанный backup и снова пересоздайте только Caddy. Подставьте фактический путь backup:
+
+```bash
+ssh "$CAPSA_DEPLOY_TARGET" '
+  set -eu
+  cd /srv/capsa
+  backup="/srv/capsa/caddy/Caddyfile.backup.<timestamp>"
+  install -m 0644 "$backup" /srv/capsa/caddy/Caddyfile
+  docker compose up -d --force-recreate caddy
+'
+curl -fsS https://capsachat.org/.well-known/matrix/client
+curl -fsS https://capsachat.org/.well-known/matrix/server
+curl -fsS https://matrix.capsachat.org/_matrix/client/versions >/dev/null
+```
+
+Только после успешного восстановления и этих Matrix discovery/API gates продолжайте диагностику; не перезапускайте Synapse или PostgreSQL.
 
 ## Публикация release
 
@@ -74,8 +95,8 @@ Rollback проверяет каталог release и атомарно пере�
 Проверьте HTTPS, SPA fallback и обязательные cache headers:
 
 ```bash
-curl -fsS https://web.capsachat.org/ >/dev/null
-curl -fsS https://web.capsachat.org/chats/health-check >/dev/null
+test "$(curl -fsS -o /dev/null -w '%{http_code}' https://web.capsachat.org/)" = 200
+test "$(curl -fsS -o /dev/null -w '%{http_code}' https://web.capsachat.org/chats/health-check)" = 200
 curl -fsSI https://web.capsachat.org/index.html | grep -i '^cache-control: no-cache'
 asset_path=$(curl -fsS https://web.capsachat.org/ | grep -o '/assets/[^" ]*\.js' | head -n 1)
 test -n "$asset_path"
@@ -88,6 +109,27 @@ curl -fsSI "https://web.capsachat.org/assets/$(basename "$wasm_file")" | grep -i
 Убедитесь, что Matrix discovery и homeserver продолжают отвечать:
 
 ```bash
+curl -fsS https://capsachat.org/.well-known/matrix/client
+curl -fsS https://capsachat.org/.well-known/matrix/server
+curl -fsS https://matrix.capsachat.org/_matrix/client/versions >/dev/null
+```
+
+### release validation: persistence после recreate
+
+После успешных health checks повторно пересоздайте только Caddy и убедитесь, что candidate и активный root сохраняются, а `/` и nested route снова возвращают HTTP 200. Этот второй recreate является обязательной persistence-проверкой release validation и не заменяет recreate при активации.
+
+```bash
+ssh "$CAPSA_DEPLOY_TARGET" '
+  set -eu
+  cd /srv/capsa
+  docker compose up -d --force-recreate caddy
+  docker cp /srv/capsa/caddy/Caddyfile capsa-caddy-1:/tmp/capsa-Caddyfile.expected
+  docker exec capsa-caddy-1 cmp /tmp/capsa-Caddyfile.expected /etc/caddy/Caddyfile
+  docker exec capsa-caddy-1 test -r /srv/capsa-web/current/index.html
+  docker exec capsa-caddy-1 rm -f /tmp/capsa-Caddyfile.expected
+'
+test "$(curl -fsS -o /dev/null -w '%{http_code}' https://web.capsachat.org/)" = 200
+test "$(curl -fsS -o /dev/null -w '%{http_code}' https://web.capsachat.org/chats/health-check)" = 200
 curl -fsS https://capsachat.org/.well-known/matrix/client
 curl -fsS https://capsachat.org/.well-known/matrix/server
 curl -fsS https://matrix.capsachat.org/_matrix/client/versions >/dev/null
