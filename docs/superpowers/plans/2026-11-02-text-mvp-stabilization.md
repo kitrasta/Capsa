@@ -359,6 +359,75 @@ git add scripts/deploy-web.sh scripts/rollback-web.sh deploy/Caddyfile docs/depl
 git commit -m "build: add atomic web deployment and rollback"
 ```
 
+### Task 8A: Read markers используют server events и очищают unread
+
+**Files:**
+- Modify: `src/widgets/Chat/hooks/useMarkRead.ts`
+- Create: `src/widgets/Chat/hooks/__tests__/useMarkRead.test.tsx`
+- Modify: `src/widgets/Chat/ChatView.tsx`
+- Test: `src/widgets/Chat/__tests__/ChatView.test.tsx`
+- Modify: `src/widgets/Sidebar/RoomList/hooks/useRoomListItem.ts` только если integration test покажет недостающее обновление
+- Test: `src/widgets/Sidebar/RoomList/hooks/__tests__/useRoomListItem.test.tsx`
+
+**Interfaces:**
+- Consumes: live timeline массив из `useRoomTimeline`, который пересоздаётся и при LocalEchoUpdated; `MatrixClient.setRoomReadMarkers`, `Room.setUnreadNotificationCount`.
+- Produces: `useMarkRead(room, atBottom, messages: MatrixEvent[])`; выбирает последнее видимое сообщение с server ID `$...` и неотправленный local echo пропускает. После успешного read marker локально обнуляет Total unread и эмитит SDK room event для sidebar.
+
+- [ ] **Step 1: Написать failing regression tests**
+
+Покрыть: открытие unread room отправляет последний server-acknowledged ID и после успеха меняет тот же RoomListItem unread на 0; SENDING/QUEUED/ENCRYPTING/NOT_SENT local echo никогда не попадает в read marker; LocalEchoUpdated с новым messages array при неизменной длине позволяет поздний SENT echo отметиться; visible at-bottom live receive очищает новый unread. Не отключать unread counts.
+
+- [ ] **Step 2: Подтвердить RED**
+
+Run: `pnpm vitest run src/widgets/Chat/hooks/__tests__/useMarkRead.test.tsx src/widgets/Chat/__tests__/ChatView.test.tsx src/widgets/Sidebar/RoomList/hooks/__tests__/useRoomListItem.test.tsx`
+Expected: FAIL на local transaction ID, отсутствии повторного trigger и/или неочищенном badge.
+
+- [ ] **Step 3: Минимально исправить read-state flow**
+
+Передавать `messages` вместо одной длины, выбирать последний видимый server event по `$`-ID и допустимому status, после успешного `setRoomReadMarkers` вызывать `room.setUnreadNotificationCount(NotificationCountType.Total, 0)`. Сохранить retry после ошибки и существующие read receipts; не скрывать badge в UI.
+
+- [ ] **Step 4: Проверить GREEN и real A/B сценарий**
+
+Run: `pnpm test && pnpm lint && pnpm build`. Затем на production preview с сохранёнными synthetic sessions повторить A/B read-state scenario: badge исчезает после открытия и после reload, visible at-bottom receive не оставляет unread, read-marker 404 отсутствует. Сохранить sanitized evidence в SDD workspace. Production Caddy в этой задаче не менять.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/widgets/Chat/hooks/useMarkRead.ts src/widgets/Chat/hooks/__tests__/useMarkRead.test.tsx src/widgets/Chat/ChatView.tsx src/widgets/Chat/__tests__/ChatView.test.tsx src/widgets/Sidebar/RoomList/hooks/useRoomListItem.ts src/widgets/Sidebar/RoomList/hooks/__tests__/useRoomListItem.test.tsx
+git commit -m "fix: synchronize read markers and unread badges"
+```
+
+### Task 8B: Caddy single-file bind mount учитывается при активации
+
+**Files:**
+- Modify: `docs/deployment.md`
+- Test: `.superpowers/sdd/2026-11-02-text-mvp-stabilization/task-8B-runbook-test.sh`
+- Reference: `deploy/Caddyfile`, `scripts/deploy-web.sh`, `scripts/rollback-web.sh`
+
+**Interfaces:**
+- Consumes: существующий single-file bind mount `/srv/capsa/caddy/Caddyfile:/etc/caddy/Caddyfile:ro` и validated candidate.
+- Produces: runbook явно пересоздаёт Caddy после inode-replacing install, проверяет active root внутри container и делает HTTP health gate; Synapse/PostgreSQL не затрагиваются.
+
+- [ ] **Step 1: Написать failing runbook regression**
+
+В gitignored harness проверить, что старый install+reload путь не считается достаточным: требуются `docker compose up -d --force-recreate caddy`, сравнение candidate с `/etc/caddy/Caddyfile` внутри нового container, активный root `/srv/capsa-web/current`, `/` и nested-route HTTP 200. Проверить rollback: restore backup + recreate + health check. Зафиксировать RED на текущем runbook.
+
+- [ ] **Step 2: Исправить только deployment runbook**
+
+После backup/validate/install явно recreate только Caddy, затем проверить candidate checksum/content и active root внутри container перед health checks. При failure восстановить backup, recreate Caddy и проверить Matrix discovery/API. Добавить restart/recreate persistence check для Task 8. Не менять application scripts или Caddy candidate без необходимости.
+
+- [ ] **Step 3: Проверить harness и документацию**
+
+Run: `bash .superpowers/sdd/2026-11-02-text-mvp-stabilization/task-8B-runbook-test.sh && git diff --check`
+Expected: GREEN; runbook содержит обязательные activation, active-config, health, rollback и persistence gates. Production в Task 8B не менять.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add docs/deployment.md
+git commit -m "fix: recreate Caddy after bind-mounted config update"
+```
+
 ### Task 8: Production release, smoke test и отчёт
 
 **Files:**
