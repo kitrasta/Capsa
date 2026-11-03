@@ -2,8 +2,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { MatrixClient, Room } from 'matrix-js-sdk';
+import type { MatrixClient, MatrixEvent, Room } from 'matrix-js-sdk';
 import { getClient } from '../../../shared/lib/matrix';
+import { useRoomReady } from '../hooks/useRoomReady';
+import { useRoomTimeline } from '../hooks/useRoomTimeline';
+import { useAutoLoadHistory } from '../hooks/useAutoLoadHistory';
 import type { EditDraft, ReplyDraft } from '../hooks/useRoomDraft';
 import ChatView from '../ChatView';
 
@@ -13,10 +16,10 @@ vi.mock('../../../shared/lib/matrix', async (importOriginal) => ({
 }));
 
 vi.mock('../hooks/useRoomReady', () => ({
-    useRoomReady: () => room,
+    useRoomReady: vi.fn(() => room),
     useIsLoading: () => false,
 }));
-vi.mock('../hooks/useRoomTimeline', () => ({ useRoomTimeline: () => [] }));
+vi.mock('../hooks/useRoomTimeline', () => ({ useRoomTimeline: vi.fn(() => []) }));
 vi.mock('../hooks/useTypingStatus', () => ({ useTypingStatus: () => null }));
 vi.mock('../hooks/useScrollPosition', () => ({
     useScrollPosition: () => ({
@@ -27,7 +30,7 @@ vi.mock('../hooks/useScrollPosition', () => ({
     }),
 }));
 vi.mock('../hooks/useAutoLoadHistory', () => ({
-    useAutoLoadHistory: () => ({ loading: false, loadMore: vi.fn() }),
+    useAutoLoadHistory: vi.fn(() => ({ loading: false, loadMore: vi.fn() })),
 }));
 vi.mock('../hooks/useMarkRead', () => ({ useMarkRead: vi.fn() }));
 vi.mock('../hooks/useMessageSend', () => ({
@@ -116,14 +119,31 @@ beforeEach(() => {
     vi.mocked(getClient).mockReturnValue({
         getUserId: () => USER_ID,
     } as unknown as MatrixClient);
+    vi.mocked(useRoomReady).mockReturnValue(room);
+    vi.mocked(useRoomTimeline).mockReturnValue([]);
+    vi.mocked(useAutoLoadHistory).mockReturnValue({ loading: false, loadMore: vi.fn() });
     send.mockResolvedValue(undefined);
     edit.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     localStorage.clear();
 });
+
+const makeMessage = (id: string, ts: number): MatrixEvent =>
+    ({
+        getId: () => id,
+        getSender: () => '@alice:example.org',
+        getTs: () => ts,
+        getContent: () => ({ body: id, msgtype: 'm.text' }),
+        getRelation: () => null,
+        replacingEventId: () => undefined,
+        isRedacted: () => false,
+        replyEventId: undefined,
+        status: null,
+    }) as unknown as MatrixEvent;
 
 describe('ChatView: composer drafts', () => {
     it('восстанавливает текст и активный reply draft после rejected send', async () => {
@@ -218,5 +238,86 @@ describe('ChatView: composer drafts', () => {
         expect(getComposer().value).toBe('Текст с IME');
         expect(send).not.toHaveBeenCalled();
         expect(edit).not.toHaveBeenCalled();
+    });
+});
+
+describe('ChatView: pagination scroll anchor', () => {
+    it('сохраняет offset первого сообщения и не загружает вторую страницу auto-fill', async () => {
+        const anchor = makeMessage('$anchor', 2);
+        let timeline = [anchor, makeMessage('$last', 3)];
+        const paginationRoom = {
+            ...room,
+            oldState: { paginationToken: 'page-2' },
+            getLiveTimeline: () => ({ getEvents: () => timeline }),
+            findEventById: () => null,
+            getUnfilteredTimelineSet: () => ({
+                relations: { getChildEventsForEvent: () => null },
+            }),
+            currentState: {
+                getMember: () => ({ name: 'Alice' }),
+                on: vi.fn(),
+                off: vi.fn(),
+            },
+        } as unknown as Room;
+        vi.mocked(useRoomReady).mockReturnValue(paginationRoom);
+        vi.mocked(useRoomTimeline).mockImplementation(() => timeline);
+        const { useAutoLoadHistory: realUseAutoLoadHistory } = await vi.importActual<
+            typeof import('../hooks/useAutoLoadHistory')
+        >('../hooks/useAutoLoadHistory');
+        vi.mocked(useAutoLoadHistory).mockImplementation(realUseAutoLoadHistory);
+
+        const firstPage = deferred();
+        const scrollback = vi.fn()
+            .mockImplementationOnce(async () => {
+                await firstPage.promise;
+                timeline = [makeMessage('$older-1', 0), makeMessage('$older-2', 1), ...timeline];
+                paginationRoom.oldState.paginationToken = 'page-1';
+            })
+            .mockImplementation(() => new Promise<void>(() => {}));
+        vi.mocked(getClient).mockReturnValue({
+            getUserId: () => USER_ID,
+            scrollback,
+        } as unknown as MatrixClient);
+
+        let scrollTop = 200;
+        let scrollHeight = 600;
+        vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(300);
+        vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(() => scrollHeight);
+        vi.spyOn(Element.prototype, 'scrollTop', 'get').mockImplementation(() => scrollTop);
+        // Эмулирует CSS scroll-behavior: smooth из production:
+        // прямое присваивание не меняет текущий offset синхронно.
+        vi.spyOn(Element.prototype, 'scrollTop', 'set').mockImplementation(() => {});
+        const view = renderChat();
+        const container = document.querySelector('[class*="_messages_"]') as HTMLDivElement;
+        expect(container).not.toBeNull();
+        container.scrollTo = vi.fn(({ top, behavior }: ScrollToOptions) => {
+            if (behavior === 'instant') scrollTop = top ?? 0;
+        }) as typeof container.scrollTo;
+        const anchorElement = container.querySelector('[data-event-id="$anchor"]') as HTMLElement;
+        anchorElement.getBoundingClientRect = () =>
+            ({ top: 128 + (scrollHeight - 600) - scrollTop }) as DOMRect;
+
+        await act(async () => {});
+        expect(scrollback).not.toHaveBeenCalled();
+        scrollTop = 0;
+        fireEvent.scroll(container);
+        await waitFor(() => expect(scrollback).toHaveBeenCalledTimes(1));
+        expect(anchorElement.getBoundingClientRect().top).toBe(128);
+
+        scrollHeight = 1100;
+        await act(async () => {
+            firstPage.resolve();
+            await firstPage.promise;
+        });
+        view.rerender(
+            <MemoryRouter>
+                <ChatView roomId={ROOM_ID} />
+            </MemoryRouter>,
+        );
+        await act(async () => {});
+
+        expect(scrollback).toHaveBeenCalledTimes(1);
+        expect(container.scrollTop).toBe(500);
+        expect(anchorElement.getBoundingClientRect().top).toBe(128);
     });
 });

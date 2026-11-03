@@ -45,7 +45,14 @@ const ChatView = ({ roomId }: Props) => {
         if (!el || !keepPosition) return;
         scrollAnchorRef.current = { scrollHeight: el.scrollHeight, scrollTop: el.scrollTop };
     }, []);
-    const { loading, loadMore } = useAutoLoadHistory(room, messages.length, messagesRef, onBeforeLoad);
+    const isAnchorPending = useCallback(() => scrollAnchorRef.current !== null, []);
+    const { loading, loadMore } = useAutoLoadHistory(
+        room,
+        messages.length,
+        messagesRef,
+        onBeforeLoad,
+        isAnchorPending,
+    );
 
     const { send, edit, toggleReaction, typing } = useMessageSend(roomId);
     // прочтение: при открытии, при новых сообщениях (если внизу) и при доскролле вниз
@@ -74,7 +81,10 @@ const ChatView = ({ roomId }: Props) => {
         const anchor = scrollAnchorRef.current;
         if (!el || !anchor) return;
         if (el.scrollHeight > anchor.scrollHeight) {
-            el.scrollTop = anchor.scrollTop + (el.scrollHeight - anchor.scrollHeight);
+            el.scrollTo({
+                top: anchor.scrollTop + (el.scrollHeight - anchor.scrollHeight),
+                behavior: 'instant',
+            });
             scrollAnchorRef.current = null;
         }
     }, [messages.length]);

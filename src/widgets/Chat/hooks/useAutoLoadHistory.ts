@@ -12,6 +12,9 @@ export const useAutoLoadHistory = (
     containerRef: RefObject<HTMLElement | null>,
     // вызывается до запроса: компонент захватывает якорь позиции чтения
     onBeforeLoad: (keepPosition: boolean) => void,
+    // пока компонент восстанавливает якорь, auto-fill не должен добавлять
+    // следующую страницу с keepPosition=false
+    isAnchorPending: () => boolean = () => false,
 ): { loading: boolean; loadMore: (keepPosition: boolean) => void } => {
     const [loading, setLoading] = useState(false);
     const isLoadingRef = useRef(false);
@@ -51,7 +54,7 @@ export const useAutoLoadHistory = (
     // автозаполнение: лента не заполняет вьюпорт — грузим сами,
     // пока не появится прокрутка или не исчерпается история
     useEffect(() => {
-        if (!room || loading) return;
+        if (!room || loading || isAnchorPending()) return;
         const el = containerRef.current;
         if (!el) return;
         // уже есть прокрутка и мы не у верха — не мешаем юзеру
