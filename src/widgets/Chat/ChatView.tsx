@@ -75,19 +75,27 @@ const ChatView = ({ roomId }: Props) => {
     // порядок хуков при появлении комнаты.
     const timelineItems = useTimelineItems(messages, room, client.getUserId());
 
+    // якорь относится только к комнате, где началась пагинация
+    useLayoutEffect(() => {
+        scrollAnchorRef.current = null;
+    }, [roomId]);
+
     // компенсация скролла при пагинации: удерживаем ту же точку чтения
     useLayoutEffect(() => {
         const el = messagesRef.current;
         const anchor = scrollAnchorRef.current;
         if (!el || !anchor) return;
-        if (el.scrollHeight > anchor.scrollHeight) {
+        const grew = el.scrollHeight > anchor.scrollHeight;
+        if (grew) {
             el.scrollTo({
                 top: anchor.scrollTop + (el.scrollHeight - anchor.scrollHeight),
                 behavior: 'instant',
             });
-            scrollAnchorRef.current = null;
         }
-    }, [messages.length]);
+        // failed/no-op scrollback не меняет ленту: pending anchor нельзя
+        // оставлять блокировать auto-fill после завершения запроса
+        if (grew || !loading) scrollAnchorRef.current = null;
+    }, [messages.length, loading]);
 
     const handleScroll = () => {
         const el = messagesRef.current;
