@@ -254,6 +254,42 @@ git add src/widgets/Chat/ChatView.tsx src/widgets/Chat/hooks/useAutoLoadHistory.
 git commit -m "fix: preserve pagination scroll anchor"
 ```
 
+### Task 5B: Не принимать loading indicator за рост таймлайна
+
+**Files:**
+- Modify: `src/widgets/Chat/ChatView.tsx`
+- Test: `src/widgets/Chat/__tests__/ChatView.test.tsx`
+- Reference: `.superpowers/sdd/2026-11-02-text-mvp-stabilization/metrics/task-6-pagination-scroll-calls.json`
+
+**Interfaces:**
+- Consumes: scroll-anchor compensation и stale-anchor cleanup из Task 5A; browser regression `task-6-pagination`/`task-6-pagination-second`.
+- Produces: loading indicator не применяет и не очищает scroll anchor; compensation выполняется только при prepend сообщений, а failed/no-op pagination и смена комнаты по-прежнему очищают stale anchor.
+
+- [ ] **Step 1: Написать failing regression test для loader-only growth**
+
+В `ChatView.test.tsx` смоделировать captured anchor и изменение `loading`, при котором индикатор увеличивает `scrollHeight` на 26px без изменения `messages.length`. Проверить, что это не вызывает compensation на 26px и не очищает pending anchor; затем prepend первой страницы должен мгновенно восстановить исходный viewport offset. Сохранить существующие тесты одной страницы, rejected/no-op pagination и room switch.
+
+- [ ] **Step 2: Подтвердить падение**
+
+Run: `pnpm vitest run src/widgets/Chat/__tests__/ChatView.test.tsx`
+Expected: FAIL на преждевременной compensation/очистке anchor и/или повторной автозагрузке, воспроизводящие browser call `scrollTo({ top: 26, behavior: 'instant' })` при неизменных 168 messages.
+
+- [ ] **Step 3: Внести минимальное исправление**
+
+В `ChatView.tsx` отличить рост от loading chrome от фактического prepend сообщений. Не применять и не очищать captured anchor при loader-only growth; после завершения failed/no-op запроса очистку сохранить. Не менять Matrix API, `SCROLLBACK_PAGE=40` или Task 5 memoization.
+
+- [ ] **Step 4: Проверить регрессию и повторить browser benchmark**
+
+Run: `pnpm vitest run src/widgets/Chat/__tests__/ChatView.test.tsx && pnpm test && pnpm lint && pnpm build`
+Expected: PASS. На run ID `mvp-baseline-20261102t144431z-518fd5`, production preview, viewport `1440×900`, DPR 2 и стартовых 88 messages повторить `browser/paginate-timeline.js`: одна ручная страница даёт 88→128 messages, `immediateAnchorPixelDelta=0px`, settled `anchorPixelDelta=0px`, дополнительной страницы нет. Сохранить sanitized metrics и raw trace в SDD workspace.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/widgets/Chat/ChatView.tsx src/widgets/Chat/__tests__/ChatView.test.tsx
+git commit -m "fix: ignore loading chrome in pagination anchor"
+```
+
 ### Task 6: Проверить производительность и закрыть decision gates
 
 **Files:**
