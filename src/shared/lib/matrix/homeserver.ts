@@ -1,0 +1,74 @@
+import { AutoDiscovery, AutoDiscoveryAction } from 'matrix-js-sdk';
+import { requireHomeserverUrl, requireServerName } from './config';
+
+export interface HomeserverConnection {
+    homeserverUrl: string;
+    serverName: string;
+}
+
+export interface LoginTarget extends HomeserverConnection {
+    identifier: string;
+}
+
+export class HomeserverDiscoveryError extends Error {
+    constructor() {
+        super('Не удалось определить Matrix-сервер. Проверьте домен в Matrix ID.');
+        this.name = 'HomeserverDiscoveryError';
+    }
+}
+
+export const getCapsaHomeserver = (): HomeserverConnection => ({
+    homeserverUrl: requireHomeserverUrl(),
+    serverName: requireServerName(),
+});
+
+const normalizeHomeserverUrl = (value: unknown): string | null => {
+    if (typeof value !== 'string' || value.trim().length === 0) return null;
+    try {
+        const url = new URL(value);
+        if (url.protocol !== 'https:' || url.username || url.password) return null;
+        return url.toString().replace(/\/+$/, '');
+    } catch {
+        return null;
+    }
+};
+
+export const discoverHomeserver = async (
+    serverName: string,
+): Promise<HomeserverConnection> => {
+    const normalizedServerName = serverName.trim();
+    if (!normalizedServerName) throw new HomeserverDiscoveryError();
+
+    try {
+        const config = await AutoDiscovery.findClientConfig(normalizedServerName);
+        const homeserverUrl = normalizeHomeserverUrl(config['m.homeserver']?.base_url);
+        if (config['m.homeserver']?.state !== AutoDiscoveryAction.SUCCESS || !homeserverUrl) {
+            throw new HomeserverDiscoveryError();
+        }
+        return { homeserverUrl, serverName: normalizedServerName };
+    } catch (error) {
+        if (error instanceof HomeserverDiscoveryError) throw error;
+        throw new HomeserverDiscoveryError();
+    }
+};
+
+export const resolveLoginTarget = async (input: string): Promise<LoginTarget> => {
+    const identifier = input.trim();
+    if (!identifier || /\s/.test(identifier)) {
+        throw new Error('Введите логин или полный Matrix ID.');
+    }
+
+    if (!identifier.startsWith('@')) {
+        if (identifier.includes(':') || !/^[a-z0-9._=\-/+]+$/i.test(identifier)) {
+            throw new Error('Введите логин или полный Matrix ID в формате @user:server.');
+        }
+        return { identifier, ...getCapsaHomeserver() };
+    }
+
+    const match = /^@([^:]+):(.+)$/.exec(identifier);
+    if (!match?.[1] || !match[2]) {
+        throw new Error('Введите логин или полный Matrix ID в формате @user:server.');
+    }
+    const serverName = match[2];
+    return { identifier, ...await discoverHomeserver(serverName) };
+};
