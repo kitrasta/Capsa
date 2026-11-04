@@ -18,6 +18,7 @@ import {
     restoreKeysAfterVerification,
 } from '../../shared/lib/matrix';
 import Modal from '../../shared/ui/Modal/Modal';
+import { formatRestoreResult } from './formatRestoreResult';
 import styles from './EncryptionRecovery.module.css';
 
 interface DialogProps {
@@ -60,7 +61,7 @@ const EncryptionRecoveryDialog = ({ onClose, onRecovered }: DialogProps) => {
             if (disposedRef.current) return;
             setSuccessMessage(
                 result.backupRestored
-                    ? `Устройство подтверждено. Восстановлено ключей: ${result.imported}.`
+                    ? `Устройство подтверждено. ${formatRestoreResult(result)}`
                     : 'Устройство подтверждено. Другой клиент не передал ключи старой истории — для неё используйте recovery key.',
             );
         } catch (verificationError) {
@@ -126,7 +127,7 @@ const EncryptionRecoveryDialog = ({ onClose, onRecovered }: DialogProps) => {
         try {
             const result = await recoverEncryptionWithKey(recoveryKey);
             setRecoveryKey('');
-            setSuccessMessage(`Готово. Восстановлено ключей: ${result.imported}.`);
+            setSuccessMessage(formatRestoreResult(result));
         } catch (recoveryError) {
             console.error('Failed to recover encryption keys', recoveryError);
             setError(recoveryErrorMessage(recoveryError));

@@ -47,9 +47,49 @@ describe('EncryptionRecoveryGate', () => {
         });
         fireEvent.click(screen.getByRole('button', { name: 'Восстановить сообщения' }));
 
-        expect(await screen.findByText('Готово. Восстановлено ключей: 5.')).toBeTruthy();
+        expect(await screen.findByText('Готово. Восстановлено ключей: 5 из 5.')).toBeTruthy();
         expect(recoverEncryptionWithKey).toHaveBeenCalledWith('test recovery key');
         fireEvent.click(screen.getByRole('button', { name: 'Продолжить' }));
         expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('объясняет пустой backup вместо голого «0»', async () => {
+        vi.mocked(getEncryptionRecoveryStatus).mockResolvedValue({
+            required: true,
+            hasBackup: true,
+        });
+        vi.mocked(recoverEncryptionWithKey).mockResolvedValue({ imported: 0, total: 0 });
+        render(<EncryptionRecoveryGate />);
+
+        expect(await screen.findByRole('dialog')).toBeTruthy();
+        fireEvent.change(screen.getByLabelText('Ключ восстановления'), {
+            target: { value: 'test recovery key' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Восстановить сообщения' }));
+
+        expect(
+            await screen.findByText(/Резервная копия не содержит ключей/),
+        ).toBeTruthy();
+        expect(screen.queryByText(/Восстановлено ключей: 0\./)).toBeNull();
+    });
+
+    it('показывает «0 из N», когда backup не пуст, но ничего не импортировано', async () => {
+        vi.mocked(getEncryptionRecoveryStatus).mockResolvedValue({
+            required: true,
+            hasBackup: true,
+        });
+        vi.mocked(recoverEncryptionWithKey).mockResolvedValue({ imported: 0, total: 12 });
+        render(<EncryptionRecoveryGate />);
+
+        expect(await screen.findByRole('dialog')).toBeTruthy();
+        fireEvent.change(screen.getByLabelText('Ключ восстановления'), {
+            target: { value: 'test recovery key' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Восстановить сообщения' }));
+
+        expect(
+            await screen.findByText(/Восстановлено ключей: 0 из 12/),
+        ).toBeTruthy();
+        expect(screen.queryByText(/^Готово\./)).toBeNull();
     });
 });
