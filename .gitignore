@@ -17,6 +17,9 @@ dist-ssr
 # Local worktrees
 .worktrees/
 
+# Local validation artifacts
+.local-validation/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
