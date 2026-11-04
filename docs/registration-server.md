@@ -97,4 +97,4 @@ docker compose up -d --force-recreate synapse
 Backup перед включением:  
 `/srv/capsa/synapse/homeserver.yaml.backup.registration.20261104T230314Z` (UTC в имени файла).
 
-После запуска Synapse 1.164.1 API и оба discovery endpoint отвечали успешно; регистрация вернула ожидаемый email UIA flow. Фактическая доставка письма и полный клиентский сценарий проверяются отдельно в release validation.
+После запуска Synapse 1.164.1 API и оба discovery endpoint ответили успешно; регистрация вернула ожидаемый email UIA flow. Первый SMTP-запрос выявил необходимость `force_tls: true` для порта 465; после исправления письмо доставлено, а регистрация, подтверждение email и восстановление сессии прошли. Подробности: `docs/mvp/registration-validation.md`.
