@@ -32,6 +32,15 @@ export { matrixLifecycle } from './client-manager';
 // вход по логину/паролю
 export { loginUser, validateLoginResponse } from './client';
 
+// регистрация на homeserver'е Capsa с обязательным подтверждением email
+export {
+    startEmailRegistration,
+    registrationErrorMessage,
+    type RegistrationInput,
+    type RegistrationEvents,
+    type RegistrationSession,
+} from './registration';
+
 // API-вызовы
 export {
     searchPublicRooms,
