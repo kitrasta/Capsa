@@ -45,3 +45,14 @@
 
 - SDK по-прежнему загружается на /auth (его тянут `LoginPage`/`AuthGuard`) — это осознанное ограничение A+B; ленивая инициализация SDK (подход C) — отдельная задача.
 - Предупреждение >500 kB остаётся как known limitation вместе с WASM-размером.
+
+## Authenticated smoke (2026-11-04, дополнение)
+
+Production build с `VITE_MATRIX_HOMESERVER_URL=https://matrix.org`, `vite preview` :4175, реальный аккаунт matrix.org (пользователь залогинился и ввёл recovery key самостоятельно):
+
+- Логин → `/chats`: список комнат и зашифрованная история загружены, `ChatsPage-*.js` подгружается отдельным запросом после входа.
+- Навигация `/contacts`, `/calls`, `/settings/general`, `/settings/devices`, `/settings/appearance`: каждая страница рендерится, свой chunk запрашивается ровно один раз.
+- Открытие зашифрованного чата `/chats/!…:matrix.org`: история расшифрована, composer работает.
+- Повторная навигация по уже посещённым роутам: новых script-запросов нет (React кэширует lazy).
+- Reload на вложенном роуте `/chats/:roomId`: сессия восстановлена, контент и расшифровка PASS.
+- Console errors: только 404 на опциональном `org.matrix.msc4143/rtc/transports` (известный non-blocking, как и в release-validation). Ошибок chunk loading и TDZ нет.
