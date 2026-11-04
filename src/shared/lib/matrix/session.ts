@@ -1,20 +1,27 @@
+import { MATRIX_HOMESERVER_URL, MATRIX_SERVER_NAME } from './config';
+
 export interface MatrixSession {
-    accessToken: string,
-    userId: string,
-    deviceId: string,
+    accessToken: string;
+    userId: string;
+    deviceId: string;
+    homeserverUrl: string;
+    serverName: string;
 }
+
+type MatrixCredentials = Pick<MatrixSession, 'accessToken' | 'userId' | 'deviceId'>;
+type NullableCredentials = Record<keyof MatrixCredentials, string | null>;
+type NullableSession = Record<keyof MatrixSession, string | null>;
 
 // Новые ключи с общим префиксом — единственный источник правды для чтения/записи.
 const SESSION_KEYS = {
     accessToken: 'capsa.matrix.accessToken',
     userId: 'capsa.matrix.userId',
     deviceId: 'capsa.matrix.deviceId',
+    homeserverUrl: 'capsa.matrix.homeserverUrl',
+    serverName: 'capsa.matrix.serverName',
 } as const;
 
-// Старые (глобальные) ключи. Используются только для миграции в getSession().
-// Не удаляем их при logout: если на этом же origin ещё жива старая сборка (кэш dist),
-// она читает matrix_access_token — её собственное состояние не наше дело.
-// Миграция переносит значения и снимает старые ключи только когда новых нет целиком.
+// Старые глобальные ключи используются только для миграции в getSession().
 const LEGACY_KEYS = {
     accessToken: 'matrix_access_token',
     userId: 'matrix_user_id',
@@ -23,17 +30,52 @@ const LEGACY_KEYS = {
 
 type SessionField = keyof typeof SESSION_KEYS;
 
-// Строгая проверка формы сессии.
-// accessToken проверяем только на непустую строку: у Matrix нет устойчивого формата
-// токена, привязываться к нему regex-ом смысла нет (и мы его нигде не логируем).
-// userId проверяем на Matrix-форму @localpart:homeserver.
-const isValidSession = (session: Partial<MatrixSession> | Record<'accessToken' | 'userId' | 'deviceId', string | null>): session is MatrixSession =>
-    typeof session.accessToken === 'string' &&
-    session.accessToken.trim().length > 0 &&
-    typeof session.userId === 'string' &&
-    /^@[^:]+:.+$/.test(session.userId) &&
-    typeof session.deviceId === 'string' &&
-    session.deviceId.trim().length > 0;
+const isNonEmptyString = (value: unknown): value is string =>
+    typeof value === 'string' && value.trim().length > 0;
+
+const accountServerName = (userId: string): string | null => {
+    const separator = userId.indexOf(':');
+    return userId.startsWith('@') && separator > 1 && separator < userId.length - 1
+        ? userId.slice(separator + 1).toLowerCase()
+        : null;
+};
+
+const isValidCredentials = (
+    session: Partial<MatrixCredentials> | NullableCredentials,
+): session is MatrixCredentials =>
+    isNonEmptyString(session.accessToken) &&
+    isNonEmptyString(session.userId) &&
+    accountServerName(session.userId) !== null &&
+    isNonEmptyString(session.deviceId);
+
+const isValidHomeserverUrl = (value: unknown): value is string => {
+    if (!isNonEmptyString(value)) return false;
+    try {
+        const url = new URL(value);
+        return url.protocol === 'https:' && !url.username && !url.password;
+    } catch {
+        return false;
+    }
+};
+
+const isValidSession = (
+    session: Partial<MatrixSession> | NullableSession,
+): session is MatrixSession =>
+    isValidCredentials(session) &&
+    isValidHomeserverUrl(session.homeserverUrl) &&
+    isNonEmptyString(session.serverName) &&
+    accountServerName(session.userId) === session.serverName.trim().toLowerCase();
+
+const defaultConnectionFor = (userId: string): Pick<MatrixSession, 'homeserverUrl' | 'serverName'> | null => {
+    if (
+        !isValidHomeserverUrl(MATRIX_HOMESERVER_URL) ||
+        !MATRIX_SERVER_NAME ||
+        accountServerName(userId) !== MATRIX_SERVER_NAME.toLowerCase()
+    ) {
+        return null;
+    }
+    return { homeserverUrl: MATRIX_HOMESERVER_URL, serverName: MATRIX_SERVER_NAME };
+};
 
 let migrationDone = false;
 
@@ -44,103 +86,99 @@ function removeSessionKeys(): void {
 }
 
 function removeLegacyKeys(): void {
-    (Object.keys(LEGACY_KEYS) as SessionField[]).forEach((field) => {
+    (Object.keys(LEGACY_KEYS) as Array<keyof typeof LEGACY_KEYS>).forEach((field) => {
         localStorage.removeItem(LEGACY_KEYS[field]);
     });
 }
 
-// Однократная и тихая миграция со старых ключей на новые. Токен никогда не логируется.
-// done = false означает временный сбой хранения — миграцию можно повторить
-// при следующем getSession().
+function writeSession(session: MatrixSession): void {
+    (Object.keys(SESSION_KEYS) as SessionField[]).forEach((field) => {
+        localStorage.setItem(SESSION_KEYS[field], session[field]);
+    });
+}
+
+// Однократная и тихая миграция старых глобальных ключей. Токен не логируется.
 function migrateLegacyKeys(): { session: MatrixSession | null; done: boolean } {
     try {
         const accessToken = localStorage.getItem(LEGACY_KEYS.accessToken);
         const userId = localStorage.getItem(LEGACY_KEYS.userId);
         const deviceId = localStorage.getItem(LEGACY_KEYS.deviceId);
 
-        // Старых ключей нет — делать нечего, миграция завершена.
         if (accessToken === null && userId === null && deviceId === null) {
             return { session: null, done: true };
         }
 
-        const legacySession = { accessToken, userId, deviceId };
-        // Битые старые значения просто удаляем — повторять нечего.
-        if (!isValidSession(legacySession)) {
+        const legacyCredentials = { accessToken, userId, deviceId };
+        const connection = isValidCredentials(legacyCredentials)
+            ? defaultConnectionFor(legacyCredentials.userId)
+            : null;
+        if (!isValidCredentials(legacyCredentials) || !connection) {
             removeLegacyKeys();
             return { session: null, done: true };
         }
+        const legacySession = { ...legacyCredentials, ...connection };
 
-        // Сначала пишем новый формат...
         try {
-            localStorage.setItem(SESSION_KEYS.accessToken, legacySession.accessToken);
-            localStorage.setItem(SESSION_KEYS.userId, legacySession.userId);
-            localStorage.setItem(SESSION_KEYS.deviceId, legacySession.deviceId);
+            writeSession(legacySession);
         } catch {
-            // Запись не удалась — убираем частично записанные новые ключи,
-            // старые не трогаем: они остаются для следующей попытки миграции.
+            // Не оставляем частичную новую запись; старую сохраняем для retry.
             removeSessionKeys();
             return { session: null, done: false };
         }
 
-        // ...и только после успешной записи удаляем старые ключи.
         removeLegacyKeys();
         return { session: legacySession, done: true };
     } catch {
-        // Ошибка доступа при чтении (приватный режим и т.п.) —
-        // миграцию не считаем завершённой, повторим позже.
+        // Временный сбой чтения — повторим при следующем getSession().
         return { session: null, done: false };
     }
 }
 
 export function getSession(): MatrixSession | null {
     try {
-        // 1. читаем новые ключи
         const accessToken = localStorage.getItem(SESSION_KEYS.accessToken);
         const userId = localStorage.getItem(SESSION_KEYS.userId);
         const deviceId = localStorage.getItem(SESSION_KEYS.deviceId);
-        const session = { accessToken, userId, deviceId };
+        const homeserverUrl = localStorage.getItem(SESSION_KEYS.homeserverUrl);
+        const serverName = localStorage.getItem(SESSION_KEYS.serverName);
+        const session = { accessToken, userId, deviceId, homeserverUrl, serverName };
 
-        // 2. новая сессия валидна — возвращаем её (миграция не нужна)
-        if (isValidSession(session)) {
-            return session;
+        if (isValidSession(session)) return session;
+
+        // Формат между старыми matrix_* и server-aware: дополняем только
+        // трёхполевую запись, если домен аккаунта совпадает с конфигурацией.
+        const credentials = { accessToken, userId, deviceId };
+        if (homeserverUrl === null && serverName === null && isValidCredentials(credentials)) {
+            const connection = defaultConnectionFor(credentials.userId);
+            if (connection) return { ...credentials, ...connection };
         }
 
-        // 3. новых ключей нет целиком — пробуем мигрировать со старых
-        const noNewKeys =
-            accessToken === null && userId === null && deviceId === null;
+        const noNewKeys = Object.values(session).every((value) => value === null);
         if (noNewKeys && !migrationDone) {
             const migrated = migrateLegacyKeys();
-            // Миграцию считаем завершённой только когда она дошла до конца;
-            // при временном сбое хранения повторим при следующем getSession().
             migrationDone = migrated.done;
-            // Старые значения были валидны — возвращаем мигрированную сессию
-            if (migrated.session) {
-                return migrated.session;
-            }
+            if (migrated.session) return migrated.session;
         }
 
-        // 5. частичная/битая запись в новом формате — чистим только свои ключи
-        if (!noNewKeys) {
-            clearSession();
-        }
+        if (!noNewKeys) clearSession();
         return null;
     } catch {
-        // Ошибка доступа к хранилищу — ничего не удаляем, просто считаем что сессии нет
+        // Ошибка доступа к хранилищу — ничего не удаляем.
         return null;
     }
 }
 
-// Пишем только новые ключи (capsa.matrix.*) — старые не восстанавливаем.
 export function saveSession(session: MatrixSession): void {
-    if (!isValidSession(session)) {
-        throw new Error('Invalid Matrix session');
+    if (!isValidSession(session)) throw new Error('Invalid Matrix session');
+    try {
+        writeSession(session);
+    } catch (error) {
+        removeSessionKeys();
+        throw error;
     }
-    localStorage.setItem(SESSION_KEYS.accessToken, session.accessToken);
-    localStorage.setItem(SESSION_KEYS.userId, session.userId);
-    localStorage.setItem(SESSION_KEYS.deviceId, session.deviceId);
 }
 
-// Удаляем только ключи Capsa — никакого localStorage.clear(), чужие данные origin не трогаем.
+// Удаляем только ключи Capsa — никакого localStorage.clear().
 export function clearSession(): void {
     removeSessionKeys();
 }
