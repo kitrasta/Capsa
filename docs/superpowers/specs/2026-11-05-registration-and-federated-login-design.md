@@ -151,6 +151,7 @@ registrations_require_3pid:
 email:
   smtp_host: smtp.resend.com
   smtp_port: 465
+  force_tls: true
   smtp_user: resend
   smtp_pass: <RESEND_API_KEY>
   require_transport_security: true

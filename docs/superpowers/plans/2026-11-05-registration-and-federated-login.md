@@ -311,7 +311,7 @@ Ask the operator to put `RESEND_API_KEY=<key>` in local `.env`. Upload that file
 
 - [ ] **Step 3: Back up and patch Synapse**
 
-Create timestamped mode-preserving backup of `homeserver.yaml`. Set `enable_registration: true`, `registrations_require_3pid: [email]`, correct `public_baseurl`, and the exact email block from the spec (`smtp.resend.com:465`, user `resend`, TLS, verified sender). Read the key from the temporary file without echoing it; preserve existing unrelated configuration and file permissions.
+Create timestamped mode-preserving backup of `homeserver.yaml`. Set `enable_registration: true`, `registrations_require_3pid: [email]`, correct `public_baseurl`, and the exact email block from the spec (`smtp.resend.com:465`, `force_tls: true`, user `resend`, TLS, verified sender). Read the key from the temporary file without echoing it; preserve existing unrelated configuration and file permissions.
 
 - [ ] **Step 4: Restart only Synapse and run health gates**
 
