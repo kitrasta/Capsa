@@ -17,6 +17,9 @@ dist-ssr
 # Isolated agent worktrees
 .worktrees/
 
+# Local brainstorming companion data
+.superpowers/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

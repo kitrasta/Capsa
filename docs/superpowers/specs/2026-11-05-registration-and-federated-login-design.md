@@ -41,6 +41,7 @@
 - Перенос аккаунтов между homeserver'ами, смена `server_name` и миграция инфраструктуры.
 - Сохранение незавершённой регистрации между перезагрузками страницы.
 - Изменение PostgreSQL, Caddy и Matrix discovery, если проверка не выявит конкретную необходимость.
+- Будущий лендинг `capsachat.org` и размещение приложения на `web.capsachat.org`; текущая регистрация не должна от них зависеть.
 
 ## 5. Рассмотренные подходы
 
@@ -66,7 +67,7 @@ Capsa → backend Capsa → Synapse → Resend SMTP
 
 ### 6.1. Вход
 
-`/auth` сохраняет форму входа и получает ссылку «Нет аккаунта? Зарегистрироваться».
+`/auth` становится общей страницей аутентификации с вкладками «Вход» и «Регистрация». Адрес при переключении не меняется. Вкладка «Вход» содержит текущую форму.
 
 Поле называется «Matrix ID или логин»:
 
@@ -80,7 +81,7 @@ Capsa → backend Capsa → Synapse → Resend SMTP
 
 ### 6.2. Регистрация
 
-Отдельный маршрут `/register` внутри `AuthLayout`, визуально согласованный с `/auth`.
+Вкладка «Регистрация» на той же странице `/auth`, визуально согласованная с формой входа. Отдельного маршрута `/register` не будет.
 
 Поля:
 
@@ -169,9 +170,9 @@ email:
 
 ## 9. Основные места изменения
 
-- `src/pages/LoginPage.tsx`, `LoginPage.module.css` — полный Matrix ID, discovery, ссылка на регистрацию.
-- Новый `src/pages/RegisterPage.tsx` и CSS module — форма, email pending, resend/poll.
-- `src/app/router/app-router.tsx` — `/register`.
+- `src/pages/LoginPage.tsx`, `LoginPage.module.css` — вкладки «Вход / Регистрация» на `/auth`, полный Matrix ID и discovery.
+- Новый `src/widgets/Auth/RegistrationForm.tsx` и CSS module — форма, email pending, resend/poll внутри `/auth`.
+- `src/app/router/app-router.tsx` сохраняет единый auth-маршрут `/auth`.
 - `src/shared/lib/matrix/client.ts` — динамический `baseUrl`, вход и регистрация, общая проверка session response.
 - Новый модуль homeserver discovery/registration в `src/shared/lib/matrix/`.
 - `src/shared/lib/matrix/session.ts` — server-aware session и миграция старых записей.
