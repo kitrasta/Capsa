@@ -73,6 +73,37 @@ describe('resolveLoginTarget', () => {
     );
 
     it.each([
+        '@alice:https://example.org',
+        '@alice:http://example.org',
+        '@alice:example.org/path',
+        '@alice:example.org?query=1',
+        '@alice:example.org#fragment',
+        '@alice:user@example.org',
+        '@alice:example.org:not-a-port',
+    ])('не выполняет discovery для malformed server name %j', async (input) => {
+        const { resolveLoginTarget } = await loadHomeserver();
+
+        await expect(resolveLoginTarget(input)).rejects.toThrow('Введите логин');
+        expect(findClientConfig).not.toHaveBeenCalled();
+    });
+
+    it.each(['matrix.org:8448', '[::1]', '[::1]:8448'])(
+        'сохраняет поддержку валидного server name %j',
+        async (serverName) => {
+            findClientConfig.mockResolvedValue(discoveryResult(
+                AutoDiscoveryAction.SUCCESS,
+                'https://matrix-client.matrix.org',
+            ) as never);
+            const { resolveLoginTarget } = await loadHomeserver();
+
+            await expect(resolveLoginTarget(`@alice:${serverName}`)).resolves.toMatchObject({
+                serverName,
+            });
+            expect(findClientConfig).toHaveBeenCalledWith(serverName);
+        },
+    );
+
+    it.each([
         AutoDiscoveryAction.PROMPT,
         AutoDiscoveryAction.FAIL_PROMPT,
         AutoDiscoveryAction.FAIL_ERROR,

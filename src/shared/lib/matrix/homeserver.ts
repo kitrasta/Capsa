@@ -33,11 +33,32 @@ const normalizeHomeserverUrl = (value: unknown): string | null => {
     }
 };
 
+const isValidPort = (value?: string): boolean => {
+    if (value === undefined) return true;
+    const port = Number(value);
+    return /^\d+$/.test(value) && Number.isInteger(port) && port >= 1 && port <= 65535;
+};
+
+const isValidServerName = (value: string): boolean => {
+    if (!value || value.trim() !== value || /[\s@/?#]/.test(value)) return false;
+
+    const ipv6 = /^\[([0-9a-f:.]+)\](?::(\d+))?$/i.exec(value);
+    if (ipv6) return ipv6[1].includes(':') && isValidPort(ipv6[2]);
+    if (value.startsWith('[') || value.includes(':') && !/:\d+$/.test(value)) return false;
+
+    const match = /^([a-z0-9.-]+)(?::(\d+))?$/i.exec(value);
+    if (!match || match[1].length > 253 || match[1].includes('..')) return false;
+    const labelsValid = match[1].split('.').every((label) =>
+        /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(label),
+    );
+    return labelsValid && isValidPort(match[2]);
+};
+
 export const discoverHomeserver = async (
     serverName: string,
 ): Promise<HomeserverConnection> => {
     const normalizedServerName = serverName.trim();
-    if (!normalizedServerName) throw new HomeserverDiscoveryError();
+    if (!isValidServerName(normalizedServerName)) throw new HomeserverDiscoveryError();
 
     try {
         const config = await AutoDiscovery.findClientConfig(normalizedServerName);
@@ -65,8 +86,8 @@ export const resolveLoginTarget = async (input: string): Promise<LoginTarget> =>
         return { identifier, ...getCapsaHomeserver() };
     }
 
-    const match = /^@([^:]+):(.+)$/.exec(identifier);
-    if (!match?.[1] || !match[2]) {
+    const match = /^@([^:@\s]+):(.+)$/.exec(identifier);
+    if (!match?.[1] || !match[2] || !isValidServerName(match[2])) {
         throw new Error('Введите логин или полный Matrix ID в формате @user:server.');
     }
     const serverName = match[2];
