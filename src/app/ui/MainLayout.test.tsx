@@ -9,16 +9,25 @@ import {
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { MatrixClient } from 'matrix-js-sdk';
 
-vi.mock('../../shared/lib/matrix', () => ({
-    getClient: vi.fn(),
-    getSession: vi.fn(),
-    cleanupLegacyCryptoStore: vi.fn(),
-    matrixLifecycle: {
-        subscribe: vi.fn(),
-        getState: vi.fn(),
-        start: vi.fn(),
-    },
-}));
+vi.mock('../../shared/lib/matrix', () => {
+    // стабильный snapshot: useSyncExternalStore сравнивает ссылку,
+    // новый объект на каждый вызов = бесконечный цикл рендеров
+    const otkState = { conflict: false };
+    return {
+        getClient: vi.fn(),
+        getSession: vi.fn(),
+        cleanupLegacyCryptoStore: vi.fn(),
+        otkConflict: {
+            getState: vi.fn(() => otkState),
+            subscribe: vi.fn(() => () => undefined),
+        },
+        matrixLifecycle: {
+            subscribe: vi.fn(),
+            getState: vi.fn(),
+            start: vi.fn(),
+        },
+    };
+});
 
 vi.mock('../../widgets/Sidebar/Sidebar', () => ({
     default: () => <div>Sidebar</div>,

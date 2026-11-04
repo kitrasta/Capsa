@@ -4,6 +4,8 @@
 // Публичный API слоя — index.ts.
 import { createClient } from 'matrix-js-sdk';
 import type { MatrixClient } from 'matrix-js-sdk';
+import { logger as sdkLogger } from 'matrix-js-sdk/lib/logger';
+import type { Logger } from 'matrix-js-sdk/lib/logger';
 import type { MatrixSession } from './session';
 import { clearSession } from './session';
 import {
@@ -20,10 +22,32 @@ import {
     getSecretStorageKey,
 } from './secret-storage-key';
 import { requireHomeserverUrl } from './config';
+import { otkConflict } from './crypto-conflict';
 
 // адрес homeserver'а и server_name — в config.ts (без зависимостей от SDK);
 // ре-экспорт для API-модулей (api/spaces) и обратной совместимости
 export { MATRIX_HOMESERVER_URL, MATRIX_SERVER_NAME } from './config';
+
+// SDK логирует конфликт one-time keys только через logger.error (см.
+// crypto-conflict.ts). Оборачиваем стандартный логгер: все сообщения
+// проходят дальше без изменений, параллельно детектор считает совпадения.
+const loggerWithOtkDetection: Logger = {
+    ...sdkLogger,
+    error: (...args: unknown[]) => {
+        otkConflict.error(...args);
+        sdkLogger.error(...args);
+    },
+    getChild: (namespace: string) => {
+        const child = sdkLogger.getChild(namespace);
+        return {
+            ...child,
+            error: (...args: unknown[]) => {
+                otkConflict.error(...args);
+                child.error(...args);
+            },
+        };
+    },
+};
 
 let client: MatrixClient | null = null;
 
@@ -41,6 +65,7 @@ export const initClient = async (session: MatrixSession): Promise<MatrixClient> 
         userId: session.userId,
         deviceId: session.deviceId,
         store,
+        logger: loggerWithOtkDetection,
         cryptoCallbacks: {
             getSecretStorageKey,
             cacheSecretStorageKey,
