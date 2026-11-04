@@ -22,23 +22,25 @@ export interface OtkConflictDetector {
 
 export const createOtkConflictDetector = (): OtkConflictDetector => {
     let strikes = 0;
-    let conflict = false;
+    let state: OtkConflictState = { conflict: false };
     const listeners = new Set<() => void>();
 
     return {
         error: (...args: unknown[]) => {
-            if (conflict) return;
+            if (state.conflict) return;
             const text = args
                 .map((a) => (a instanceof Error ? a.message : String(a)))
                 .join(' ');
             if (!OTK_CONFLICT_PATTERN.test(text)) return;
             strikes += 1;
             if (strikes >= OTK_CONFLICT_THRESHOLD) {
-                conflict = true;
+                // Новый объект: useSyncExternalStore сравнивает snapshot по ссылке,
+                // мутация того же объекта не вызовет re-render.
+                state = { conflict: true };
                 listeners.forEach((l) => l());
             }
         },
-        getState: () => ({ conflict }),
+        getState: () => state,
         subscribe: (listener) => {
             listeners.add(listener);
             return () => listeners.delete(listener);
