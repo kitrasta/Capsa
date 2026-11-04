@@ -4,6 +4,7 @@ import Sidebar from '../../widgets/Sidebar/Sidebar';
 import SettingsMenu from '../../widgets/Settings/SettingsMenu';
 import EncryptionRecoveryGate from '../../widgets/EncryptionRecovery/EncryptionRecovery';
 import ConnectionStatus from './ConnectionStatus';
+import LazyRouteErrorBoundary from '../../shared/ui/LazyRouteErrorBoundary/LazyRouteErrorBoundary';
 import { useEffect, useSyncExternalStore, Suspense } from 'react';
 import {
     getSession,
@@ -41,10 +42,14 @@ const MainLayout = () => {
                 <main className={styles.content}>
                     <ConnectionStatus />
                     {/* lazy-страницы: fallback только внутри контентной области,
-                        Sidebar и ConnectionStatus при навигации не мигуют */}
-                    <Suspense fallback={<p>Загрузка…</p>}>
-                        <Outlet />
-                    </Suspense>
+                        Sidebar и ConnectionStatus при навигации не мигуют.
+                        Error boundary ловит rejected lazy-import (новый деплой /
+                        сетевой сбой) и предлагает перезагрузку вместо падения всего app */}
+                    <LazyRouteErrorBoundary>
+                        <Suspense fallback={<p>Загрузка…</p>}>
+                            <Outlet />
+                        </Suspense>
+                    </LazyRouteErrorBoundary>
                 </main>
                 <EncryptionRecoveryGate />
             </div>
