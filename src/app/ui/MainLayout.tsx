@@ -4,7 +4,7 @@ import Sidebar from '../../widgets/Sidebar/Sidebar';
 import SettingsMenu from '../../widgets/Settings/SettingsMenu';
 import EncryptionRecoveryGate from '../../widgets/EncryptionRecovery/EncryptionRecovery';
 import ConnectionStatus from './ConnectionStatus';
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore, Suspense } from 'react';
 import {
     getSession,
     matrixLifecycle,
@@ -40,7 +40,11 @@ const MainLayout = () => {
                 </aside>
                 <main className={styles.content}>
                     <ConnectionStatus />
-                    <Outlet />
+                    {/* lazy-страницы: fallback только внутри контентной области,
+                        Sidebar и ConnectionStatus при навигации не мигуют */}
+                    <Suspense fallback={<p>Загрузка…</p>}>
+                        <Outlet />
+                    </Suspense>
                 </main>
                 <EncryptionRecoveryGate />
             </div>
