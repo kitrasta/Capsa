@@ -58,7 +58,9 @@ const isSameSession = (a: MatrixSession | null, b: MatrixSession): boolean =>
     a !== null &&
     a.accessToken === b.accessToken &&
     a.userId === b.userId &&
-    a.deviceId === b.deviceId;
+    a.deviceId === b.deviceId &&
+    a.homeserverUrl === b.homeserverUrl &&
+    a.serverName === b.serverName;
 
 const messageOf = (error: unknown): string =>
     error instanceof Error && error.message ? error.message : 'Неизвестная ошибка';

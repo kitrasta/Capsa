@@ -7,6 +7,7 @@ import type { MatrixClient } from 'matrix-js-sdk';
 import { logger as sdkLogger } from 'matrix-js-sdk/lib/logger';
 import type { Logger } from 'matrix-js-sdk/lib/logger';
 import type { MatrixSession } from './session';
+import type { LoginTarget } from './homeserver';
 import { clearSession } from './session';
 import {
     createStore,
@@ -21,7 +22,7 @@ import {
     clearSecretStorageKey,
     getSecretStorageKey,
 } from './secret-storage-key';
-import { requireHomeserverUrl } from './config';
+
 import { otkConflict } from './crypto-conflict';
 
 // адрес homeserver'а и server_name — в config.ts (без зависимостей от SDK);
@@ -60,7 +61,7 @@ export const initClient = async (session: MatrixSession): Promise<MatrixClient> 
     }
     const store = await createStore();
     client = createClient({
-        baseUrl: requireHomeserverUrl(),
+        baseUrl: session.homeserverUrl,
         accessToken: session.accessToken,
         userId: session.userId,
         deviceId: session.deviceId,
@@ -182,16 +183,16 @@ export function validateLoginResponse(
 }
 
 export const loginUser = async (
-    login: string,
+    target: LoginTarget,
     password: string,
 ): Promise<MatrixLoginResponse> => {
-    const tempClient = createClient({ baseUrl: requireHomeserverUrl() });
+    const tempClient = createClient({ baseUrl: target.homeserverUrl });
     return tempClient.loginRequest({  
 
         type: 'm.login.password',
         identifier: {
             type: 'm.id.user',
-            user: login,
+            user: target.identifier,
         },
         password,
     });
