@@ -56,3 +56,17 @@ Production build с `VITE_MATRIX_HOMESERVER_URL=https://matrix.org`, `vite previ
 - Повторная навигация по уже посещённым роутам: новых script-запросов нет (React кэширует lazy).
 - Reload на вложенном роуте `/chats/:roomId`: сессия восстановлена, контент и расшифровка PASS.
 - Console errors: только 404 на опциональном `org.matrix.msc4143/rtc/transports` (известный non-blocking, как и в release-validation). Ошибок chunk loading и TDZ нет.
+
+## OTK conflict detection (follow-up #1, variant C)
+
+Дата: 2026-11-04. Коммиты: `bda0d04` (детектор + баннер), `523d1e4` (fix snapshot).
+
+**Механизм:** SDK логирует конфликт one-time keys через `logger.error` (`Failed to process outgoing request … One time key … already exists`). Мы оборачиваем logger в `createClient` (`client.ts`), считаем совпадения в `crypto-conflict.ts` (threshold=3) и показываем баннер в `MainLayout` с объяснением и кнопкой «Выйти».
+
+**Два дефекта найдены при browser verification:**
+1. React #185 (infinite loop): `getState()` возвращал новый объект на каждый вызов — исправлено в тестовом моке и в singleton (стабильный snapshot).
+2. Snapshot mutation: `getState()` возвращал тот же мутируемый объект — `useSyncExternalStore` сравнивает по ссылке и не перерендеривал. Исправлено: новый объект при изменении.
+
+**Browser verification (matrix.org):** после удаления крипто-базы + reload баннер появляется (~30-60 сек, 3 sync-цикла), кнопка «Выйти» выполняет logout и уводит на /auth. Известная гонка: при navigate('/auth') старый MainLayout может ещё рендериться и `EncryptionRecoveryGate` вызывает `getClient()` на null — ловится `LazyRouteErrorBoundary`, после reload /auth работает.
+
+**Не сделано (variant A):** автоматический re-login с новым deviceId — требует отдельной задачи.
