@@ -61,10 +61,11 @@ const isValidHomeserverUrl = (value: unknown): value is string => {
 const isValidSession = (
     session: Partial<MatrixSession> | NullableSession,
 ): session is MatrixSession =>
-    isValidCredentials(session) &&
     isValidHomeserverUrl(session.homeserverUrl) &&
     isNonEmptyString(session.serverName) &&
-    accountServerName(session.userId) === session.serverName.trim().toLowerCase();
+    isNonEmptyString(session.userId) &&
+    accountServerName(session.userId) === session.serverName.trim().toLowerCase() &&
+    isValidCredentials(session);
 
 const defaultConnectionFor = (userId: string): Pick<MatrixSession, 'homeserverUrl' | 'serverName'> | null => {
     if (
