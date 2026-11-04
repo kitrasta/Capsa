@@ -1,0 +1,88 @@
+.form,
+.pending {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.form label {
+    color: var(--c-text-2);
+    font-size: 13px;
+}
+
+.input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--c-bg-soft);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    color: var(--c-text-1);
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--c-brand);
+}
+
+.input:disabled {
+    opacity: 0.65;
+}
+
+.submit,
+.secondary {
+    margin-top: 8px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.submit {
+    background: var(--c-brand);
+    color: var(--c-bg);
+}
+
+.secondary {
+    background: transparent;
+    border: 1px solid var(--c-border);
+    color: var(--c-text-1);
+}
+
+.submit:disabled,
+.secondary:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.pending h3 {
+    color: var(--c-text-1);
+    text-align: center;
+}
+
+.pending p {
+    color: var(--c-text-2);
+    font-size: 13px;
+    line-height: 20px;
+}
+
+.note {
+    color: var(--c-text-2);
+    font-size: 12px;
+    text-align: center;
+}
+
+.error {
+    color: var(--c-danger, #e5484d);
+    font-size: 13px;
+    line-height: 18px;
+}
+
+.link {
+    align-self: center;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: var(--c-brand);
+    cursor: pointer;
+}
