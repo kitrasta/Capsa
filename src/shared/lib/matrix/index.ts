@@ -29,8 +29,15 @@ export {
 // lifecycle клиента: единая точка запуска/остановки/logout + состояние для UI
 export { matrixLifecycle } from './client-manager';
 
-// вход по логину/паролю
+// вход по логину/паролю и выбор homeserver'а
 export { loginUser, validateLoginResponse } from './client';
+export {
+    resolveLoginTarget,
+    getCapsaHomeserver,
+    HomeserverDiscoveryError,
+    type HomeserverConnection,
+    type LoginTarget,
+} from './homeserver';
 
 // регистрация на homeserver'е Capsa с обязательным подтверждением email
 export {

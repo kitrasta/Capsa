@@ -54,6 +54,8 @@ const session = {
     accessToken: 'token',
     userId: '@me:example.org',
     deviceId: 'DEVICE',
+    homeserverUrl: 'https://matrix.example.org',
+    serverName: 'example.org',
 };
 
 const renderDirectChatLink = () =>
