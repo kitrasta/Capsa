@@ -98,6 +98,31 @@ describe('startEmailRegistration', () => {
             },
         });
     });
+
+    it('отклоняет flow с дополнительной неподдерживаемой стадией до отправки письма', async () => {
+        const { sdk, registration } = await loadModules();
+        const registerRequest = vi.fn().mockRejectedValue(new sdk.MatrixError({
+            errcode: 'M_UNAUTHORIZED',
+            error: 'Additional authentication required',
+            session: 'uia-session',
+            flows: [{ stages: [sdk.AuthType.Email, sdk.AuthType.Recaptcha] }],
+        }, 401));
+        const requestRegisterEmailToken = vi.fn();
+        mocks.createClient.mockReturnValue({
+            registerRequest,
+            requestRegisterEmailToken,
+            generateClientSecret: () => 'client-secret',
+            getIdentityServerUrl: () => null,
+        } as never);
+
+        const session = registration.startEmailRegistration(
+            { username: 'alice', email: 'alice@example.com', password: 'password' },
+            { onEmailSent: vi.fn(), onBusyChange: vi.fn() },
+        );
+
+        await expect(session.completion).rejects.toBeInstanceOf(sdk.NoAuthFlowFoundError);
+        expect(requestRegisterEmailToken).not.toHaveBeenCalled();
+    });
 });
 
 describe('registrationErrorMessage', () => {
@@ -111,6 +136,35 @@ describe('registrationErrorMessage', () => {
     ])('безопасно классифицирует %j', async (error, expected) => {
         const { registration } = await loadModules();
         expect(registration.registrationErrorMessage(error)).toBe(expected);
+    });
+
+    it('распознаёт настоящий Matrix rate limit без вывода текста сервера', async () => {
+        const { sdk, registration } = await loadModules();
+        const error = new sdk.MatrixError({
+            errcode: 'M_LIMIT_EXCEEDED',
+            error: 'secret server response',
+        }, 429);
+
+        expect(registration.registrationErrorMessage(error)).toBe(
+            'Слишком много попыток. Попробуйте позже.',
+        );
+    });
+
+    it('распознаёт SDK ConnectionError', async () => {
+        const { sdk, registration } = await loadModules();
+        const error = new sdk.ConnectionError('fetch failed', new TypeError('secret cause'));
+
+        expect(registration.registrationErrorMessage(error)).toBe(
+            'Не удалось связаться с сервером. Проверьте соединение.',
+        );
+    });
+
+    it('не показывает raw текст неизвестной ошибки', async () => {
+        const { registration } = await loadModules();
+        const message = registration.registrationErrorMessage(new Error('password=super-secret'));
+
+        expect(message).toBe('Не удалось зарегистрироваться. Попробуйте ещё раз.');
+        expect(message).not.toContain('super-secret');
     });
 
     it('сообщает об unsupported UIA flow', async () => {

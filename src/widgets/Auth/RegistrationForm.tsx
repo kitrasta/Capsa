@@ -117,14 +117,18 @@ const RegistrationForm = ({ onRegistered }: RegistrationFormProps) => {
     const handleResend = async () => {
         const session = sessionRef.current;
         if (!session || busy || resendCooldown > 0) return;
+        const generation = generationRef.current;
+        const isCurrent = () => mountedRef.current &&
+            generationRef.current === generation &&
+            sessionRef.current === session;
         setBusy(true);
         setError(null);
         try {
             await session.resendEmail();
         } catch (resendError) {
-            if (mountedRef.current) setError(registrationErrorMessage(resendError));
+            if (isCurrent()) setError(registrationErrorMessage(resendError));
         } finally {
-            if (mountedRef.current) setBusy(false);
+            if (isCurrent()) setBusy(false);
         }
     };
 

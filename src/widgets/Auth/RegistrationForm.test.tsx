@@ -172,6 +172,35 @@ describe('RegistrationForm email flow', () => {
         expect(screen.getByText('Безопасная ошибка: секретное тело ответа')).toBeTruthy();
     });
 
+    it('не даёт старому resend изменить новую попытку после «Начать заново»', async () => {
+        vi.useFakeTimers();
+        const first = mockRegistration();
+        render(<RegistrationForm onRegistered={vi.fn()} />);
+        fillValidForm();
+        submitForm();
+        await act(async () => first.events().onEmailSent());
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(30000);
+        });
+        const resend = deferred<void>();
+        vi.mocked(first.session.resendEmail).mockImplementation(() => resend.promise);
+        fireEvent.click(screen.getByRole('button', { name: /Отправить письмо снова/ }));
+        fireEvent.click(screen.getByRole('button', { name: 'Начать заново' }));
+
+        const second = mockRegistration();
+        fillValidForm();
+        submitForm();
+        expect(mocks.start).toHaveBeenCalledTimes(2);
+        const secondSubmit = screen.getByRole('button', { name: 'Регистрация…' });
+        expect((secondSubmit as HTMLButtonElement).disabled).toBe(true);
+
+        await act(async () => resend.reject(new Error('old request failed')));
+
+        expect(screen.queryByRole('alert')).toBeNull();
+        expect((secondSubmit as HTMLButtonElement).disabled).toBe(true);
+        expect(second.completion).toBeDefined();
+    });
+
     it('после unmount не poll-ит и не обрабатывает поздний completion', async () => {
         vi.useFakeTimers();
         const registration = mockRegistration();
