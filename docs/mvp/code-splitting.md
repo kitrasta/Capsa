@@ -39,6 +39,7 @@
   - Network: `/auth` загружает только `index`, `matrix`, `react-vendor`, `rolldown-runtime` — page-chunks НЕ запрашиваются;
   - динамический `import()` всех 5 page-chunks в браузере: OK, default export — функция (ровно то, что делает `React.lazy`).
 - **Не проверено:** навигация после реального логина (нет сохранённых тестовых сессий локально). Рекомендуется включить в следующий production smoke при деплое.
+- После ревью добавлен `LazyRouteErrorBoundary` (`src/shared/ui/LazyRouteErrorBoundary`): rejected lazy-import (новый деплой, старая вкладка, сетевой сбой) показывает recovery UI с кнопкой «Перезагрузить» вместо падения всего приложения. Покрыто 2 тестами (suite 205/205).
 
 ## Известные ограничения / follow-ups
 
