@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { ChatView } from '../widgets/Chat';
+import { RoomAccessGate } from '../widgets/Chat';
 import styles from './ChatsPage.module.css';
 
 const ChatsPage = () => {
@@ -18,7 +18,7 @@ const ChatsPage = () => {
         );
     }
 
-    return <ChatView key={roomId} roomId={roomId} />;
+    return <RoomAccessGate key={roomId} roomId={roomId} />;
 };
 
 export default ChatsPage;
