@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { MatrixClient, Room } from 'matrix-js-sdk';
+import { RoomEvent } from 'matrix-js-sdk';
+import type { MatrixClient, MatrixEvent, Room } from 'matrix-js-sdk';
 
 vi.mock('../../../shared/lib/matrix', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../../../shared/lib/matrix')>()),
@@ -69,5 +70,49 @@ describe('RoomList', () => {
             'Группа',
         ]);
         expect(screen.getByRole('button', { name: 'Space' })).toBeTruthy();
+    });
+
+    it('обновляет unread другой папки, даже когда её комнаты не видимы', () => {
+        let hiddenUnread = 0;
+        let hiddenHandler: (() => void) | undefined;
+        const visible = makeRoom('!visible:example.org', 'Видимая', 20);
+        const hidden = makeRoom('!hidden:example.org', 'Скрытая', 10);
+        hidden.getRoomUnreadNotificationCount = () => hiddenUnread;
+        hidden.on = vi.fn((event: string, handler: () => void) => {
+            if (event === RoomEvent.UnreadNotifications) hiddenHandler = handler;
+        }) as never;
+        hidden.off = vi.fn((event: string, handler: () => void) => {
+            if (event === RoomEvent.UnreadNotifications && hiddenHandler === handler) {
+                hiddenHandler = undefined;
+            }
+        }) as never;
+        const edge = (roomId: string): MatrixEvent => ({
+            getStateKey: () => roomId,
+            getContent: () => ({ via: ['example.org'] }),
+        }) as unknown as MatrixEvent;
+        const rootA = makeRoom('!a:example.org', 'A', 0, true);
+        const rootB = makeRoom('!b:example.org', 'B', 0, true);
+        Object.defineProperty(rootA.currentState, 'getStateEvents', {
+            value: () => [edge(visible.roomId)],
+        });
+        Object.defineProperty(rootB.currentState, 'getStateEvents', {
+            value: () => [edge(hidden.roomId)],
+        });
+        const rooms = [visible, hidden, rootA, rootB];
+        const client = {
+            getRooms: () => rooms,
+            getRoom: (roomId: string) => rooms.find((room) => room.roomId === roomId) ?? null,
+            on: vi.fn(),
+            off: vi.fn(),
+        };
+        vi.mocked(getClient).mockReturnValue(client as unknown as MatrixClient);
+
+        render(<MemoryRouter initialEntries={['/chats']}><RoomList /></MemoryRouter>);
+        fireEvent.click(screen.getByRole('button', { name: 'A' }));
+
+        hiddenUnread = 2;
+        act(() => hiddenHandler?.());
+
+        expect(screen.getByRole('button', { name: 'B2' })).toBeTruthy();
     });
 });

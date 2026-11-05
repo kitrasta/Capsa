@@ -2,6 +2,7 @@ import styles from './RoomList.module.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RoomEvent } from 'matrix-js-sdk';
 import type { Room } from 'matrix-js-sdk';
+import { getClient } from '../../../shared/lib/matrix';
 import { useLocation, useNavigate } from 'react-router-dom';
 import RoomListItemContainer from './RoomListItemContainer';
 import UnjoinedRoomItem from './UnjoinedRoomItem';
@@ -14,9 +15,11 @@ const RoomList = () => {
     const { pathname } = useLocation();
     const folders = useSpaceFolders();
     const [, setVersion] = useState(0);
-    const myRooms = folders.rooms
-        .map((view) => view.room)
-        .filter((room): room is Room => room?.getMyMembership() === 'join');
+    // Подписываемся на все joined rooms, а не только на видимый фильтр:
+    // unread-badge другой папки тоже должен обновляться в фоне.
+    const myRooms = getClient().getRooms().filter(
+        (room) => room.getMyMembership() === 'join' && !room.isSpaceRoom(),
+    );
 
     // /chats/:roomId, roomId URL-encoded (содержит ! и :)
     const activeRoomId = pathname.startsWith('/chats/')
