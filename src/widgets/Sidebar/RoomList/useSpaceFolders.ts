@@ -153,11 +153,13 @@ export const useSpaceFolders = () => {
     const roots = getJoinedSpaceRoots(client);
     const resolvedPath = pathIds
         .map((roomId) => client.getRoom(roomId))
-        .filter((room): room is Room => room !== null && room.isSpaceRoom());
-    // Если текущий Space исчез из store, без дополнительного effect показываем корень.
+        .filter((room): room is Room => room !== null && room.isSpaceRoom() && isJoined(room));
+    // Исчезнувший или покинутый Space без дополнительного effect заменяется корнем.
     const path = resolvedPath.length === pathIds.length ? resolvedPath : [];
     const currentSpace = path[path.length - 1] ?? null;
     const currentId = currentSpace?.roomId ?? null;
+    const directChildIds = currentSpace ? getDirectSpaceChildIds(currentSpace) : [];
+    const directChildSignature = [...directChildIds].sort().join('\0');
 
     useEffect(() => {
         requestVersion.current += 1;
@@ -175,13 +177,12 @@ export const useSpaceFolders = () => {
                     setRequestResult({ spaceId: currentId, error: true });
                 }
             });
-    }, [currentId]);
+    }, [currentId, directChildSignature]);
 
     const summaries = currentId ? summaryCache[currentId] : undefined;
     const requestSettled = requestResult?.spaceId === currentId;
     const enrichmentError = requestSettled && requestResult.error;
     const isEnriching = currentId !== null && !summaries && !requestSettled;
-    const directChildIds = currentSpace ? getDirectSpaceChildIds(currentSpace) : [];
     const directRoomIds = filter === 'direct' ? getDirectRoomIds(client) : new Set<string>();
     const joinedSpaces = client.getRooms().filter(
         (room) => room.isSpaceRoom() && isJoined(room),

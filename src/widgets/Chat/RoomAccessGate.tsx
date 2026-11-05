@@ -65,6 +65,7 @@ const RoomAccessGate = ({ roomId }: Props) => {
 
     useEffect(() => {
         let active = true;
+        let peekStarted = false;
 
         const load = async () => {
             const request = ++generation.current;
@@ -76,14 +77,17 @@ const RoomAccessGate = ({ roomId }: Props) => {
                 client.stopPeeking();
                 return;
             }
-            if (next.kind !== 'public' || !canPeekRoom(next.summary)) return;
+            if (next.kind !== 'public' || !canPeekRoom(next.summary) || peekStarted) return;
 
+            peekStarted = true;
             try {
                 const preview = await client.peekInRoom(roomId, 20);
-                if (!active || request !== generation.current) return;
+                // ClientEvent.Room от peekInRoom перезапускает классификацию, но не этот peek.
+                if (!active) return;
                 setPreviewResult({ roomId, room: preview });
             } catch {
                 // Preview — необязательное улучшение; metadata и join остаются доступны.
+                if (active) peekStarted = false;
             }
         };
 

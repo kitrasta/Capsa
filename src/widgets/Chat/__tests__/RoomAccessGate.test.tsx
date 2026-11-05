@@ -181,6 +181,33 @@ describe('RoomAccessGate', () => {
         expect(stopPeeking).toHaveBeenCalled();
     });
 
+    it('не перезапускает peek при ClientEvent.Room от peekInRoom', async () => {
+        const event = {
+            getId: () => '$message',
+            getType: () => 'm.room.message',
+            getContent: () => ({ body: 'Стабильный preview' }),
+            getSender: () => '@alice:example.org',
+            getRelation: () => null,
+            isRedacted: () => false,
+        } as unknown as MatrixEvent;
+        const previewRoom = {
+            getLiveTimeline: () => ({ getEvents: () => [event] }),
+        } as unknown as Room;
+        peekInRoom
+            .mockImplementationOnce(async () => {
+                emit(ClientEvent.Room);
+                return previewRoom;
+            })
+            // Ограничиваем известный feedback loop, чтобы RED завершался assertion'ом.
+            .mockImplementation(() => new Promise<Room>(() => undefined));
+        mocks.getRoomAccess.mockResolvedValue(access('public', { worldReadable: true }));
+
+        render(<RoomAccessGate roomId="!room:example.org" />);
+
+        expect(await screen.findByText('Стабильный preview')).toBeTruthy();
+        expect(peekInRoom).toHaveBeenCalledTimes(1);
+    });
+
     it('не вызывает peek без явного разрешения', async () => {
         mocks.getRoomAccess.mockResolvedValue(access('public', { worldReadable: false }));
 
