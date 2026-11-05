@@ -1,55 +1,53 @@
-import { Folder } from 'lucide-react';
 import type { Room } from 'matrix-js-sdk';
+import type { SpaceFolderFilter } from './useSpaceFolders';
 import styles from './SpaceFolders.module.css';
 
 interface Props {
-    roots: Room[];
+    filter: SpaceFolderFilter;
     path: Room[];
-    unreadBySpace: ReadonlyMap<string, number>;
-    onOpenRoot: (roomId: string) => void;
+    onFilterChange: (filter: SpaceFolderFilter) => void;
     onOpenBreadcrumb: (index: number) => void;
     onShowAll: () => void;
 }
 
+const filters: { value: SpaceFolderFilter; label: string }[] = [
+    { value: 'all', label: 'Все' },
+    { value: 'unread', label: 'Новые' },
+    { value: 'direct', label: 'Личные' },
+];
+
 const FolderTabs = ({
-    roots,
+    filter,
     path,
-    unreadBySpace,
-    onOpenRoot,
+    onFilterChange,
     onOpenBreadcrumb,
     onShowAll,
 }: Props) => (
     <div className={styles.navigation}>
-        <div className={styles.tabs} aria-label="Пространства">
-            <button
-                className={`${styles.tab} ${path.length === 0 ? styles.tabActive : ''}`}
-                type="button"
-                onClick={onShowAll}
-            >
-                Все
-            </button>
-            {roots.map((space) => {
-                const unread = unreadBySpace.get(space.roomId) ?? 0;
-                return (
-                    <button
-                        className={`${styles.tab} ${path[0]?.roomId === space.roomId ? styles.tabActive : ''}`}
-                        type="button"
-                        key={space.roomId}
-                        onClick={() => onOpenRoot(space.roomId)}
-                    >
-                        <Folder size={14} />
-                        <span className={styles.tabName}>{space.name}</span>
-                        {unread > 0 && <span className={styles.unread}>{unread > 99 ? '99+' : unread}</span>}
-                    </button>
-                );
-            })}
+        <div className={styles.tabs} role="group" aria-label="Фильтры чатов">
+            {filters.map((item) => (
+                <button
+                    className={`${styles.tab} ${filter === item.value ? styles.tabActive : ''}`}
+                    type="button"
+                    key={item.value}
+                    aria-pressed={filter === item.value}
+                    onClick={() => onFilterChange(item.value)}
+                >
+                    {item.label}
+                </button>
+            ))}
         </div>
 
         {path.length > 0 && (
             <nav className={styles.breadcrumbs} aria-label="Путь">
+                <span className={styles.breadcrumbItem}>
+                    <button type="button" className={styles.breadcrumb} onClick={onShowAll}>
+                        Все
+                    </button>
+                </span>
                 {path.map((space, index) => (
                     <span className={styles.breadcrumbItem} key={space.roomId}>
-                        {index > 0 && <span className={styles.separator}>/</span>}
+                        <span className={styles.separator}>/</span>
                         <button
                             type="button"
                             className={styles.breadcrumb}

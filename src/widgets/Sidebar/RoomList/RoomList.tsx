@@ -7,7 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import RoomListItemContainer from './RoomListItemContainer';
 import UnjoinedRoomItem from './UnjoinedRoomItem';
 import FolderTabs from './FolderTabs';
-import SpaceChildSpaceRow from './SpaceChildSpaceRow';
+import SpaceRow from './SpaceRow';
 import { useSpaceFolders } from './useSpaceFolders';
 
 const RoomList = () => {
@@ -65,24 +65,25 @@ const RoomList = () => {
     return (
         <div className={styles.rooms}>
             <FolderTabs
-                roots={folders.roots}
+                filter={folders.filter}
                 path={folders.path}
-                unreadBySpace={folders.unreadBySpace}
-                onOpenRoot={folders.openRoot}
+                onFilterChange={folders.setFilter}
                 onOpenBreadcrumb={folders.openBreadcrumb}
                 onShowAll={folders.showAll}
             />
 
-            {folders.spaces.map((space) => (
-                <SpaceChildSpaceRow
-                    key={space.roomId}
-                    space={space}
-                    onOpen={folders.openChild}
-                />
-            ))}
+            {folders.items.map((view) => {
+                if (view.kind === 'space') {
+                    return (
+                        <SpaceRow
+                            key={view.roomId}
+                            space={view}
+                            onOpen={folders.openSpace}
+                        />
+                    );
+                }
 
-            {folders.rooms.map((view) =>
-                view.room?.getMyMembership() === 'join' ? (
+                return view.room?.getMyMembership() === 'join' ? (
                     <RoomListItemContainer
                         key={view.roomId}
                         room={view.room}
@@ -97,8 +98,8 @@ const RoomList = () => {
                         avatarUrl={view.avatarUrl}
                         noAccess={view.noAccess}
                     />
-                ),
-            )}
+                );
+            })}
         </div>
     );
 };
