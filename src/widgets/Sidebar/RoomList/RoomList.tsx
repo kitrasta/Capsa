@@ -1,71 +1,27 @@
 import styles from './RoomList.module.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ClientEvent, RoomEvent, RoomStateEvent, SyncState, MatrixEventEvent } from 'matrix-js-sdk';
+import { RoomEvent } from 'matrix-js-sdk';
 import type { Room } from 'matrix-js-sdk';
-import { getClient } from '../../../shared/lib/matrix';
 import { useLocation, useNavigate } from 'react-router-dom';
 import RoomListItemContainer from './RoomListItemContainer';
-
-const readJoinedRooms = (): Room[] =>
-    getClient()
-        .getRooms()
-        .filter(
-            (room) => room.getMyMembership() === 'join' && !room.isSpaceRoom(),
-        )
-        .sort((a, b) => b.getLastActiveTimestamp() - a.getLastActiveTimestamp());
+import UnjoinedRoomItem from './UnjoinedRoomItem';
+import FolderTabs from './FolderTabs';
+import SpaceChildSpaceRow from './SpaceChildSpaceRow';
+import { useSpaceFolders } from './useSpaceFolders';
 
 const RoomList = () => {
     const navigate = useNavigate();
     const { pathname } = useLocation();
-    // MainLayout монтирует список после запуска клиента, поэтому начальное
-    // состояние можно прочитать сразу, не дожидаясь следующего Sync.Prepared.
-    const [myRooms, setMyRooms] = useState<Room[]>(readJoinedRooms);
+    const folders = useSpaceFolders();
+    const [, setVersion] = useState(0);
+    const myRooms = folders.rooms
+        .map((view) => view.room)
+        .filter((room): room is Room => room?.getMyMembership() === 'join');
 
     // /chats/:roomId, roomId URL-encoded (содержит ! и :)
     const activeRoomId = pathname.startsWith('/chats/')
         ? decodeURIComponent(pathname.slice('/chats/'.length))
         : null;
-
-    const refresh = useCallback(() => {
-        const rooms = readJoinedRooms();
-
-        // Единый плоский список: Spaces не влияют на положение комнаты.
-        // Пропускаем рендер, если состав или порядок не изменились.
-        setMyRooms((prev) => {
-            if (
-                prev.length === rooms.length &&
-                prev.every((room, i) => room === rooms[i])
-            ) {
-                return prev;
-            }
-            return rooms;
-        });
-    }, []);
-
-    useEffect(() => {
-        const client = getClient();
-
-        const handleSync = (state: SyncState) => {
-            if (state === SyncState.Prepared) refresh();
-        };
-        const handleRoom = () => refresh();
-
-        client.on(ClientEvent.Sync, handleSync);
-        client.on(ClientEvent.Room, handleRoom);
-        client.on(RoomEvent.MyMembership, handleRoom);
-        client.on(RoomEvent.Timeline, handleRoom);
-        client.on(MatrixEventEvent.Decrypted, handleRoom);
-        client.on(RoomStateEvent.Events, handleRoom);
-
-        return () => {
-            client.off(ClientEvent.Sync, handleSync);
-            client.off(ClientEvent.Room, handleRoom);
-            client.off(RoomEvent.MyMembership, handleRoom);
-            client.off(RoomEvent.Timeline, handleRoom);
-            client.off(MatrixEventEvent.Decrypted, handleRoom);
-            client.off(RoomStateEvent.Events, handleRoom);
-        };
-    }, [refresh]);
 
     // События непрочитанных и прочтений живут на уровне комнаты —
     // подписываемся на каждую комнату из списка.
@@ -81,7 +37,7 @@ const RoomList = () => {
         handlers.clear();
 
         for (const room of myRooms) {
-            const handler = () => refresh();
+            const handler = () => setVersion((value) => value + 1);
             handlers.set(room, handler);
             room.on(RoomEvent.UnreadNotifications, handler);
             room.on(RoomEvent.Receipt, handler);
@@ -94,7 +50,7 @@ const RoomList = () => {
             }
             handlers.clear();
         };
-    }, [myRooms, refresh]);
+    }, [myRooms]);
 
     const handleRoomClick = useCallback(
         (roomId: string) => {
@@ -105,14 +61,41 @@ const RoomList = () => {
 
     return (
         <div className={styles.rooms}>
-            {myRooms.map((room) => (
-                <RoomListItemContainer
-                    key={room.roomId}
-                    room={room}
-                    active={room.roomId === activeRoomId}
-                    onClick={handleRoomClick}
+            <FolderTabs
+                roots={folders.roots}
+                path={folders.path}
+                unreadBySpace={folders.unreadBySpace}
+                onOpenRoot={folders.openRoot}
+                onOpenBreadcrumb={folders.openBreadcrumb}
+                onShowAll={folders.showAll}
+            />
+
+            {folders.spaces.map((space) => (
+                <SpaceChildSpaceRow
+                    key={space.roomId}
+                    space={space}
+                    onOpen={folders.openChild}
                 />
             ))}
+
+            {folders.rooms.map((view) =>
+                view.room?.getMyMembership() === 'join' ? (
+                    <RoomListItemContainer
+                        key={view.roomId}
+                        room={view.room}
+                        active={view.roomId === activeRoomId}
+                        onClick={handleRoomClick}
+                    />
+                ) : (
+                    <UnjoinedRoomItem
+                        key={view.roomId}
+                        roomId={view.roomId}
+                        name={view.name}
+                        avatarUrl={view.avatarUrl}
+                        noAccess={view.noAccess}
+                    />
+                ),
+            )}
         </div>
     );
 };
