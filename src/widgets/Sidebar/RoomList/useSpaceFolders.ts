@@ -190,9 +190,13 @@ export const useSpaceFolders = () => {
     const allSpaces: SpaceFolderSpaceView[] = [];
     const allRooms: SpaceFolderRoomView[] = [];
 
-    const sourceIds = currentSpace
-        ? directChildIds
-        : [
+    const sourceIds = filter === 'direct'
+        ? client.getRooms()
+            .filter((room) => isJoined(room) && !room.isSpaceRoom())
+            .map((room) => room.roomId)
+        : currentSpace
+          ? directChildIds
+          : [
             ...roots.map((room) => room.roomId),
             ...client.getRooms()
                 .filter((room) => {

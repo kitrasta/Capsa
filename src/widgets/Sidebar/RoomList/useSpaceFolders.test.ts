@@ -265,6 +265,30 @@ describe('useSpaceFolders', () => {
         ]);
     });
 
+    it('показывает в Личные DM внутри и вне открытого Space', () => {
+        const inside = makeRoom('!inside:example.org', 'Внутри Space', { timestamp: 20 });
+        const outside = makeRoom('!outside:example.org', 'Вне Space', { timestamp: 10 });
+        const regular = makeRoom('!regular:example.org', 'Обычная вне Space');
+        const space = makeRoom('!space:example.org', 'Space', {
+            space: true,
+            children: [inside.roomId],
+        });
+        setup(
+            [inside, outside, regular, space],
+            { '@alice:example.org': [inside.roomId], '@bob:example.org': [outside.roomId] },
+        );
+        const { result } = renderHook(() => useSpaceFolders());
+
+        act(() => result.current.openSpace(space.roomId));
+        act(() => result.current.setFilter('direct'));
+
+        expect(result.current.spaces).toEqual([]);
+        expect(result.current.rooms.map((room) => room.roomId)).toEqual([
+            inside.roomId,
+            outside.roomId,
+        ]);
+    });
+
     it('переживает отсутствующий или malformed m.direct и не смешивает Личные с обычными комнатами', () => {
         const regular = makeRoom('!regular:example.org', 'Обычная');
         setup([regular], null);
