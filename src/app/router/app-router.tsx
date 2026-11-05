@@ -13,6 +13,7 @@ const ContactsPage = lazy(() => import('../../pages/ContactsPage.tsx'))
 const CallsPage = lazy(() => import('../../pages/CallsPage.tsx'))
 const GeneralSettingsPage = lazy(() => import('../../pages/GeneralSettingsPage.tsx'))
 const DevicesSettingsPage = lazy(() => import('../../pages/DevicesSettingsPage.tsx'))
+const AppearanceSettingsPage = lazy(() => import('../../pages/AppearanceSettingsPage.tsx'))
 const SettingsStubPage = lazy(() => import('../../pages/SettingsStubPage.tsx'))
 
 const AppRouter = () => {
@@ -31,7 +32,7 @@ const AppRouter = () => {
                     <Route path='/settings' element={<Navigate to="/settings/general" replace />} />
                     <Route path='/settings/general' element={<GeneralSettingsPage />} />
                     <Route path='/settings/devices' element={<DevicesSettingsPage />} />
-                    <Route path='/settings/appearance' element={<SettingsStubPage title="Оформление" />} />
+                    <Route path='/settings/appearance' element={<AppearanceSettingsPage />} />
                     <Route path='/settings/notifications' element={<SettingsStubPage title="Уведомления" />} />
                 </Route>
             </Route>

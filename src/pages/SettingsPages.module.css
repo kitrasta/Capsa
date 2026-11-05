@@ -187,6 +187,81 @@
     font-size: 13px;
 }
 
+.settingsCard {
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    background: var(--c-bg-soft);
+}
+
+.sectionTitle {
+    padding: 0 6px;
+    color: var(--c-text-2);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.optionList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.option:hover {
+    background: var(--c-bg-elv);
+}
+
+.optionSelected {
+    border-color: var(--c-brand);
+    background: var(--c-bg-elv);
+}
+
+.optionIcon {
+    flex: 0 0 auto;
+    color: var(--c-text-2);
+}
+
+.optionSelected .optionIcon,
+.optionSelected .optionTitle {
+    color: var(--c-brand);
+}
+
+.optionText {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.optionTitle {
+    color: var(--c-text-1);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.optionDescription {
+    color: var(--c-text-2);
+    font-size: 12px;
+}
+
+.radio {
+    width: 17px;
+    height: 17px;
+    margin: 0;
+    accent-color: var(--c-brand);
+}
+
 @media (max-width: 768px) {
     .wrapper {
         padding: 16px;
