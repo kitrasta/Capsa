@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
     ClientEvent,
+    MatrixEventEvent,
     NotificationCountType,
     RoomEvent,
     RoomStateEvent,
@@ -58,11 +59,15 @@ export const useSpaceFolders = () => {
         client.on(ClientEvent.Sync, handleSync);
         client.on(ClientEvent.Room, refresh);
         client.on(RoomEvent.MyMembership, refresh);
+        client.on(RoomEvent.Timeline, refresh);
+        client.on(MatrixEventEvent.Decrypted, refresh);
         client.on(RoomStateEvent.Events, refresh);
         return () => {
             client.off(ClientEvent.Sync, handleSync);
             client.off(ClientEvent.Room, refresh);
             client.off(RoomEvent.MyMembership, refresh);
+            client.off(RoomEvent.Timeline, refresh);
+            client.off(MatrixEventEvent.Decrypted, refresh);
             client.off(RoomStateEvent.Events, refresh);
         };
     }, [client]);

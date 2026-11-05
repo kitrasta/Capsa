@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { ClientEvent, RoomStateEvent } from 'matrix-js-sdk';
+import { ClientEvent, RoomEvent, RoomStateEvent } from 'matrix-js-sdk';
 import type { MatrixClient, MatrixEvent, Room } from 'matrix-js-sdk';
 import type { SpaceChildSummary } from '../../../shared/lib/matrix';
 
@@ -103,7 +103,9 @@ describe('useSpaceFolders', () => {
             space: true,
             children: [nested.roomId],
         });
-        nested.currentState.getStateEvents = () => [childEvent(root.roomId)];
+        Object.defineProperty(nested.currentState, 'getStateEvents', {
+            value: () => [childEvent(root.roomId)],
+        });
         setup([root, nested]);
         const { result } = renderHook(() => useSpaceFolders());
 
@@ -159,6 +161,27 @@ describe('useSpaceFolders', () => {
         expect(result.current.rooms[0].noAccess).toBe(true);
     });
 
+    it('поднимает комнату по новой live-активности', () => {
+        let firstTimestamp = 10;
+        const first = makeRoom('!first:example.org', 'Первая');
+        first.getLastActiveTimestamp = () => firstTimestamp;
+        const second = makeRoom('!second:example.org', 'Вторая', { timestamp: 20 });
+        const { emit } = setup([first, second]);
+        const { result } = renderHook(() => useSpaceFolders());
+        expect(result.current.rooms.map((room) => room.roomId)).toEqual([
+            second.roomId,
+            first.roomId,
+        ]);
+
+        firstTimestamp = 30;
+        act(() => emit(RoomEvent.Timeline));
+
+        expect(result.current.rooms.map((room) => room.roomId)).toEqual([
+            first.roomId,
+            second.roomId,
+        ]);
+    });
+
     it('перечитывает состав после RoomStateEvent.Events', async () => {
         const joined = makeRoom('!joined:example.org', 'Общий');
         const root = makeRoom('!root:example.org', 'Компания', {
@@ -170,7 +193,7 @@ describe('useSpaceFolders', () => {
         act(() => result.current.openRoot(root.roomId));
         expect(result.current.rooms).toHaveLength(1);
 
-        root.currentState.getStateEvents = () => [];
+        Object.defineProperty(root.currentState, 'getStateEvents', { value: () => [] });
         act(() => emit(RoomStateEvent.Events));
 
         expect(result.current.rooms).toEqual([]);

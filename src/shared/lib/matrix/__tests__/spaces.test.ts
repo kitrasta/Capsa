@@ -12,9 +12,10 @@ vi.mock('../client', () => ({
 import { addRoomToSpace, toChildSummaries, getSpaceChildSummaries } from '../api/spaces';
 import { getClient } from '../client';
 import type { IHierarchyRoom } from 'matrix-js-sdk/lib/@types/spaces';
+import type { SpaceChildSummary } from '../api/spaces';
 
 const SPACE_ID = '!space:example.org';
-const EMPTY_SUMMARY = {
+const EMPTY_SUMMARY: SpaceChildSummary = {
     name: null,
     avatarUrl: null,
     roomType: null,

@@ -51,8 +51,12 @@ describe('space folder graph', () => {
     it('выбирает одну доступную точку входа в чистый цикл без естественного корня', () => {
         const a = spaceRoom('!a:example.org', 'A');
         const b = spaceRoom('!b:example.org', 'B');
-        a.currentState.getStateEvents = () => [childEvent(b.roomId)];
-        b.currentState.getStateEvents = () => [childEvent(a.roomId)];
+        Object.defineProperty(a.currentState, 'getStateEvents', {
+            value: () => [childEvent(b.roomId)],
+        });
+        Object.defineProperty(b.currentState, 'getStateEvents', {
+            value: () => [childEvent(a.roomId)],
+        });
         const client = { getRooms: () => [a, b] } as unknown as MatrixClient;
 
         expect(getJoinedSpaceRoots(client).map((room) => room.roomId)).toEqual([
@@ -64,8 +68,12 @@ describe('space folder graph', () => {
         const a = spaceRoom('!a:example.org', 'A');
         const b = spaceRoom('!b:example.org', 'B');
         const root = spaceRoom('!root:example.org', 'Root', [childEvent(a.roomId)]);
-        a.currentState.getStateEvents = () => [childEvent(b.roomId)];
-        b.currentState.getStateEvents = () => [childEvent(a.roomId)];
+        Object.defineProperty(a.currentState, 'getStateEvents', {
+            value: () => [childEvent(b.roomId)],
+        });
+        Object.defineProperty(b.currentState, 'getStateEvents', {
+            value: () => [childEvent(a.roomId)],
+        });
         const client = { getRooms: () => [a, root, b] } as unknown as MatrixClient;
 
         expect(getJoinedSpaceRoots(client).map((room) => room.roomId)).toEqual([

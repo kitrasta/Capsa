@@ -1,4 +1,5 @@
-import type { Room, RoomSummary } from 'matrix-js-sdk/lib/client';
+import type { Room } from 'matrix-js-sdk';
+import type { RoomSummary } from 'matrix-js-sdk/lib/client';
 import type { SpaceChildSummary } from './spaces';
 import { getClient } from '../client';
 
