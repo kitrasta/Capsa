@@ -84,6 +84,13 @@ export {
     getJoinedSpaceRoots,
 } from './api/space-folders';
 export { setDisplayName, setAvatar } from './api/profile';
+export {
+    getRoomAccess,
+    knockRoom,
+    canPeekRoom,
+    type RoomAccess,
+    type RoomAccessKind,
+} from './api/room-access';
 
 // разовая очистка крипто-базы старого формата при старте
 export { cleanupLegacyCryptoStore } from './crypto';
