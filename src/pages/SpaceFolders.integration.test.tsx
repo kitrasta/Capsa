@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ClientEvent } from 'matrix-js-sdk';
 import type { MatrixClient, MatrixEvent, Room } from 'matrix-js-sdk';
@@ -66,6 +66,8 @@ describe('Space folders integration', () => {
         const client = {
             getRooms: () => [root],
             getRoom: (roomId: string) => roomId === ROOT_ID ? root : null,
+            getUserId: () => '@me:example.org',
+            getAccountData: () => null,
             on: vi.fn((event: string, listener: () => void) => {
                 if (!listeners.has(event)) listeners.set(event, new Set());
                 listeners.get(event)!.add(listener);
@@ -89,7 +91,7 @@ describe('Space folders integration', () => {
 
     afterEach(cleanup);
 
-    it('проходит путь от папки и unjoined комнаты до обычного composer', async () => {
+    it('ведёт от Space-контейнера через постоянные фильтры к обычному composer после вступления', async () => {
         render(
             <MemoryRouter initialEntries={['/chats']}>
                 <RoomList />
@@ -100,8 +102,29 @@ describe('Space folders integration', () => {
             </MemoryRouter>,
         );
 
+        // Постоянные фильтры; Space — строка-контейнер, а не верхняя вкладка.
+        const filterGroup = screen.getByRole('group', { name: 'Фильтры чатов' });
+        expect(within(filterGroup).getByRole('button', { name: 'Все' })
+            .getAttribute('aria-pressed')).toBe('true');
+        expect(within(filterGroup).queryByRole('button', { name: 'Компания' })).toBeNull();
+
+        // Открываем контейнер: список заменяется его детьми.
         fireEvent.click(screen.getByRole('button', { name: 'Компания' }));
-        fireEvent.click(await screen.findByText('Публичная'));
+        expect(await screen.findByText('Публичная')).toBeTruthy();
+
+        // «Новые» и «Личные» прячут unjoined комнату без непрочитанных и DM-связи.
+        fireEvent.click(within(filterGroup).getByRole('button', { name: 'Новые' }));
+        expect(screen.queryByText('Публичная')).toBeNull();
+        fireEvent.click(within(filterGroup).getByRole('button', { name: 'Личные' }));
+        expect(screen.queryByText('Публичная')).toBeNull();
+
+        // «Все» возвращает детей контейнера.
+        fireEvent.click(within(filterGroup).getByRole('button', { name: 'Все' }));
+        expect(screen.getByText('Публичная')).toBeTruthy();
+
+        // Открываем unjoined child, вступаем из footer и сразу получаем
+        // обычный composer — без второго перехода по навигации.
+        fireEvent.click(screen.getByText('Публичная'));
         fireEvent.click(await screen.findByRole('button', { name: 'Вступить в комнату' }));
 
         expect(mocks.joinRoom).toHaveBeenCalledWith(PUBLIC_ID);

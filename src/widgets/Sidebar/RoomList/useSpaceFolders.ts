@@ -201,7 +201,8 @@ export const useSpaceFolders = () => {
             ...client.getRooms()
                 .filter((room) => {
                     if (!isJoined(room) || room.isSpaceRoom()) return false;
-                    return filter === 'direct' || !groupedRoomIds.has(room.roomId);
+                    // Ветка 'direct' выбрала sourceIds выше — здесь её проверка мертва.
+                    return !groupedRoomIds.has(room.roomId);
                 })
                 .map((room) => room.roomId),
         ];
