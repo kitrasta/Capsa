@@ -67,7 +67,7 @@ body {
     min-width: 320px;
     background-color: var(--c-bg);
     color: var(--c-text-1);
-    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
         Helvetica, Arial, sans-serif;
     font-size: 14px;
     -webkit-font-smoothing: antialiased;

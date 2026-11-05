@@ -12,11 +12,12 @@ class NotificationMock {
     static permission: NotificationPermission = 'granted';
     static instances: NotificationMock[] = [];
     onclick: (() => void) | null = null;
+    title: string;
+    options?: NotificationOptions;
 
-    constructor(
-        public title: string,
-        public options?: NotificationOptions,
-    ) {
+    constructor(title: string, options?: NotificationOptions) {
+        this.title = title;
+        this.options = options;
         NotificationMock.instances.push(this);
     }
 }
