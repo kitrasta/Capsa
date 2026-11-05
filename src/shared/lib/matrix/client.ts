@@ -16,7 +16,11 @@ import {
     deleteDatabase,
     ROOM_STORE_DB_NAME,
 } from './storage';
-import { initCrypto, cryptoDbNamesForUser } from './crypto';
+import { initCrypto } from './crypto';
+import {
+    getRememberedDeviceId,
+    rememberDeviceIdentity,
+} from './device-identity';
 import {
     cacheSecretStorageKey,
     clearSecretStorageKey,
@@ -56,6 +60,7 @@ let client: MatrixClient | null = null;
 // Обработку ошибок sync (M_UNKNOWN_TOKEN) вешает client-manager —
 // клиент их только репортит, реакция едина для всего приложения
 export const initClient = async (session: MatrixSession): Promise<MatrixClient> => {
+    rememberDeviceIdentity(session.userId, session.deviceId);
     if (client) {
         client.stopClient();
     }
@@ -108,13 +113,12 @@ export const stopClient = async (): Promise<void> => {
     }
 };
 
-// выход: останавливаем клиент, чистим localStorage и IndexedDB
+// выход: отзываем access token, останавливаем клиент и чистим room store.
+// Scoped crypto store сохраняем: device identity тоже остаётся, поэтому при
+// следующем входе этот браузер вернётся к тем же E2EE-ключам без recovery key.
 export const logout = async (): Promise<void> => {
     clearSecretStorageKey();
     const matrixClient = getClient();
-    // захватываем userId ДО сброса синглтона: без клиента его не взять
-    const userId = matrixClient.getUserId();
-
     let deleteResults: PromiseSettledResult<void>[] | undefined;
     let roomStoreError: unknown | undefined = undefined;
     try {
@@ -135,14 +139,9 @@ export const logout = async (): Promise<void> => {
             roomStoreError = error;
         }
 
-        // вытираем начисто room-стор и ОБЕ крипто-базы текущего аккаунта
-        // (чужие scoped-базы не трогаем), дожидаясь реального удаления:
-        // allSettled, чтобы падение одного удаления не отменило остальные
-        const dbNames = [
-            ROOM_STORE_DB_NAME,
-            ...(userId ? cryptoDbNamesForUser(userId) : []),
-        ];
-        deleteResults = await Promise.allSettled(dbNames.map(deleteDatabase));
+        // Крипто-базы здесь намеренно не удаляем. Они привязаны к user ID,
+        // а loginUser повторно использует device ID того же аккаунта.
+        deleteResults = await Promise.allSettled([deleteDatabase(ROOM_STORE_DB_NAME)]);
     }
 
     // после finally: throw здесь не перетирает ошибку серверного logout
@@ -187,13 +186,15 @@ export const loginUser = async (
     password: string,
 ): Promise<MatrixLoginResponse> => {
     const tempClient = createClient({ baseUrl: target.homeserverUrl });
-    return tempClient.loginRequest({  
-
+    const rememberedDeviceId = getRememberedDeviceId(target);
+    return tempClient.loginRequest({
         type: 'm.login.password',
         identifier: {
             type: 'm.id.user',
             user: target.identifier,
         },
         password,
+        ...(rememberedDeviceId ? { device_id: rememberedDeviceId } : {}),
+        initial_device_display_name: 'Capsa Web',
     });
 };

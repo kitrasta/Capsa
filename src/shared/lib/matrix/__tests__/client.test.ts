@@ -6,6 +6,10 @@ const mocks = vi.hoisted(() => ({
     initCrypto: vi.fn(),
     otkError: vi.fn(),
     loggerError: vi.fn(),
+    getRememberedDeviceId: vi.fn(),
+    rememberDeviceIdentity: vi.fn(),
+    wipeRoomStore: vi.fn(),
+    deleteDatabase: vi.fn(),
 }));
 
 vi.mock('matrix-js-sdk', () => ({ createClient: mocks.createClient }));
@@ -18,13 +22,17 @@ vi.mock('matrix-js-sdk/lib/logger', () => ({
 vi.mock('../storage', () => ({
     createStore: mocks.createStore,
     closeRoomStore: vi.fn(),
-    wipeRoomStore: vi.fn(),
-    deleteDatabase: vi.fn(),
+    wipeRoomStore: mocks.wipeRoomStore,
+    deleteDatabase: mocks.deleteDatabase,
     ROOM_STORE_DB_NAME: 'test-store',
 }));
 vi.mock('../crypto', () => ({
     initCrypto: mocks.initCrypto,
-    cryptoDbNamesForUser: vi.fn(() => []),
+    cryptoDbNamesForUser: vi.fn(() => ['crypto-db', 'crypto-meta-db']),
+}));
+vi.mock('../device-identity', () => ({
+    getRememberedDeviceId: mocks.getRememberedDeviceId,
+    rememberDeviceIdentity: mocks.rememberDeviceIdentity,
 }));
 vi.mock('../session', () => ({ clearSession: vi.fn() }));
 vi.mock('../secret-storage-key', () => ({
@@ -34,7 +42,7 @@ vi.mock('../secret-storage-key', () => ({
 }));
 vi.mock('../crypto-conflict', () => ({ otkConflict: { error: mocks.otkError } }));
 
-import { initClient, loginUser } from '../client';
+import { initClient, loginUser, logout } from '../client';
 import type { LoginTarget } from '../homeserver';
 import type { MatrixSession } from '../session';
 
@@ -54,6 +62,7 @@ const SESSION: MatrixSession = {
 
 beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getRememberedDeviceId.mockReturnValue(null);
 });
 
 describe('loginUser', () => {
@@ -74,7 +83,25 @@ describe('loginUser', () => {
             type: 'm.login.password',
             identifier: { type: 'm.id.user', user: '@alice:matrix.org' },
             password: 'password',
+            initial_device_display_name: 'Capsa Web',
         });
+    });
+
+    it('повторно использует device ID только для того же аккаунта', async () => {
+        const loginRequest = vi.fn(async () => ({
+            access_token: 'token',
+            user_id: '@alice:matrix.org',
+            device_id: 'DEVICE1',
+        }));
+        mocks.createClient.mockReturnValue({ loginRequest } as never);
+        mocks.getRememberedDeviceId.mockReturnValue('DEVICE1');
+
+        await loginUser(TARGET, 'password');
+
+        expect(mocks.getRememberedDeviceId).toHaveBeenCalledWith(TARGET);
+        expect(loginRequest).toHaveBeenCalledWith(expect.objectContaining({
+            device_id: 'DEVICE1',
+        }));
     });
 });
 
@@ -103,5 +130,31 @@ describe('initClient', () => {
         });
         expect(options.logger).toBeDefined();
         expect(mocks.initCrypto).toHaveBeenCalledWith(matrixClient);
+        expect(mocks.rememberDeviceIdentity).toHaveBeenCalledWith(
+            '@alice:matrix.org',
+            'DEVICE1',
+        );
+    });
+});
+
+describe('logout', () => {
+    it('удаляет сессию и room store, но сохраняет криптобазу устройства', async () => {
+        const matrixClient = {
+            stopClient: vi.fn(),
+            logout: vi.fn(async () => ({})),
+            getUserId: vi.fn(() => SESSION.userId),
+        };
+        mocks.createStore.mockResolvedValue({ kind: 'store' });
+        mocks.createClient.mockReturnValue(matrixClient as never);
+        mocks.initCrypto.mockResolvedValue(undefined);
+        await initClient(SESSION);
+
+        await logout();
+
+        expect(mocks.wipeRoomStore).toHaveBeenCalledTimes(1);
+        expect(mocks.deleteDatabase).toHaveBeenCalledTimes(1);
+        expect(mocks.deleteDatabase).toHaveBeenCalledWith('test-store');
+        expect(mocks.deleteDatabase).not.toHaveBeenCalledWith('crypto-db');
+        expect(mocks.deleteDatabase).not.toHaveBeenCalledWith('crypto-meta-db');
     });
 });
