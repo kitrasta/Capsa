@@ -70,6 +70,22 @@ describe('MATRIX_SERVER_NAME', () => {
     });
 });
 
+describe('requireServerName', () => {
+    it('без server name бросает ConfigError с подсказкой', async () => {
+        const config = await loadConfig({
+            VITE_MATRIX_HOMESERVER_URL: undefined,
+            VITE_MATRIX_SERVER_NAME: undefined,
+        });
+
+        expect(() => config.requireServerName()).toThrowError(/VITE_MATRIX_SERVER_NAME/);
+        try {
+            config.requireServerName();
+        } catch (error) {
+            expect((error as Error).name).toBe('ConfigError');
+        }
+    });
+});
+
 describe('requireHomeserverUrl', () => {
     it('с заданным адресом возвращает его', async () => {
         const config = await loadConfig({

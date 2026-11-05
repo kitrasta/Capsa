@@ -41,6 +41,7 @@ export interface MessageView {
     id: string;
     body: string;
     formattedBody: string | null;
+    senderId: string;
     senderName: string;
     ts: number;
     sendStatus: string | null;
@@ -101,11 +102,14 @@ export const toMessageView = (
     const senderId = event.getSender() ?? '';
     const isOwn = senderId === myUserId;
     const content = event.getContent<{ body?: string; msgtype?: string }>();
+    const relation = event.getRelation();
+    const isReplyRelation = relation?.['m.in_reply_to'] !== undefined;
 
     return {
         id: event.getId() ?? '',
         body: trimReplyFromBody(content.body ?? ''),
         formattedBody: getFormattedBody(event),
+        senderId,
         senderName: room.currentState.getMember(senderId)?.name ?? senderId,
         ts: event.getTs(),
         sendStatus: isOwn ? getSendStatus(event) : null,
@@ -123,7 +127,7 @@ export const toMessageView = (
             !event.isRedacted() &&
             isOwn &&
             content.msgtype === 'm.text' &&
-            !event.getRelation(),
+            (!relation || (!relation.rel_type && isReplyRelation)),
     };
 };
 
@@ -157,6 +161,7 @@ export const sameMessageView = (
     (prev.id === next.id &&
         prev.body === next.body &&
         prev.formattedBody === next.formattedBody &&
+        prev.senderId === next.senderId &&
         prev.senderName === next.senderName &&
         prev.ts === next.ts &&
         prev.sendStatus === next.sendStatus &&

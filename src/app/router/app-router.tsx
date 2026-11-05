@@ -1,13 +1,18 @@
 import { Route, Routes, Navigate } from 'react-router-dom'
+import { lazy } from 'react'
 import LoginPage from '../../pages/LoginPage.tsx'
 import AuthLayout from '../ui/AuthLayout.tsx'
 import MainLayout from '../ui/MainLayout.tsx'
-import ChatsPage from '../../pages/ChatsPage.tsx'
-import ContactsPage from '../../pages/ContactsPage.tsx'
-import CallsPage from '../../pages/CallsPage.tsx'
-import GeneralSettingsPage from '../../pages/GeneralSettingsPage.tsx'
-import SettingsStubPage from '../../pages/SettingsStubPage.tsx'
 import  AuthGuard  from './AuthGuard.tsx'
+
+// Страницы защищённой зоны грузятся лениво: на /auth не нужен код чатов
+// и настроек. Suspense-обёртка — в MainLayout вокруг <Outlet/>.
+// LoginPage остаётся статическим — это стартовый экран.
+const ChatsPage = lazy(() => import('../../pages/ChatsPage.tsx'))
+const ContactsPage = lazy(() => import('../../pages/ContactsPage.tsx'))
+const CallsPage = lazy(() => import('../../pages/CallsPage.tsx'))
+const GeneralSettingsPage = lazy(() => import('../../pages/GeneralSettingsPage.tsx'))
+const SettingsStubPage = lazy(() => import('../../pages/SettingsStubPage.tsx'))
 
 const AppRouter = () => {
     return (

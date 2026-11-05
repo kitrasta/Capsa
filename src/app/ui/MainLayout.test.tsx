@@ -7,16 +7,27 @@ import {
     waitFor,
 } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import type { MatrixClient } from 'matrix-js-sdk';
 
-vi.mock('../../shared/lib/matrix', () => ({
-    getSession: vi.fn(),
-    cleanupLegacyCryptoStore: vi.fn(),
-    matrixLifecycle: {
-        subscribe: vi.fn(),
-        getState: vi.fn(),
-        start: vi.fn(),
-    },
-}));
+vi.mock('../../shared/lib/matrix', () => {
+    // стабильный snapshot: useSyncExternalStore сравнивает ссылку,
+    // новый объект на каждый вызов = бесконечный цикл рендеров
+    const otkState = { conflict: false };
+    return {
+        getClient: vi.fn(),
+        getSession: vi.fn(),
+        cleanupLegacyCryptoStore: vi.fn(),
+        otkConflict: {
+            getState: vi.fn(() => otkState),
+            subscribe: vi.fn(() => () => undefined),
+        },
+        matrixLifecycle: {
+            subscribe: vi.fn(),
+            getState: vi.fn(),
+            start: vi.fn(),
+        },
+    };
+});
 
 vi.mock('../../widgets/Sidebar/Sidebar', () => ({
     default: () => <div>Sidebar</div>,
@@ -34,6 +45,7 @@ import MainLayout from './MainLayout';
 import styles from './MainLayout.module.css';
 import {
     cleanupLegacyCryptoStore,
+    getClient,
     getSession,
     matrixLifecycle,
 } from '../../shared/lib/matrix';
@@ -42,6 +54,8 @@ const session = {
     accessToken: 'token',
     userId: '@me:example.org',
     deviceId: 'DEVICE',
+    homeserverUrl: 'https://matrix.example.org',
+    serverName: 'example.org',
 };
 
 const renderDirectChatLink = () =>
@@ -60,6 +74,11 @@ const renderDirectChatLink = () =>
 
 beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getClient).mockReturnValue({
+        getSyncState: () => null,
+        on: vi.fn(),
+        off: vi.fn(),
+    } as unknown as MatrixClient);
     vi.mocked(getSession).mockReturnValue(session);
     vi.mocked(cleanupLegacyCryptoStore).mockResolvedValue(undefined);
     vi.mocked(matrixLifecycle.start).mockResolvedValue(undefined);

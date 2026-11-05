@@ -13,6 +13,10 @@
 // ---------------------------------------------------------------------------
 export { getClient } from './client';
 
+// детектор конфликта one-time keys (400 «already exists» после сброса
+// крипто-базы с сохранённым deviceId) — для баннера в MainLayout
+export { otkConflict } from './crypto-conflict';
+
 // ---------------------------------------------------------------------------
 // Сессия в localStorage (сохранение/чтение/очистка)
 // ---------------------------------------------------------------------------
@@ -25,8 +29,24 @@ export {
 // lifecycle клиента: единая точка запуска/остановки/logout + состояние для UI
 export { matrixLifecycle } from './client-manager';
 
-// вход по логину/паролю
+// вход по логину/паролю и выбор homeserver'а
 export { loginUser, validateLoginResponse } from './client';
+export {
+    resolveLoginTarget,
+    getCapsaHomeserver,
+    HomeserverDiscoveryError,
+    type HomeserverConnection,
+    type LoginTarget,
+} from './homeserver';
+
+// регистрация на homeserver'е Capsa с обязательным подтверждением email
+export {
+    startEmailRegistration,
+    registrationErrorMessage,
+    type RegistrationInput,
+    type RegistrationEvents,
+    type RegistrationSession,
+} from './registration';
 
 // API-вызовы
 export {

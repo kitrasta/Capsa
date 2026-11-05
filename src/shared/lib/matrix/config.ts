@@ -29,3 +29,12 @@ export const requireHomeserverUrl = (): string => {
     }
     return MATRIX_HOMESERVER_URL;
 };
+
+export const requireServerName = (): string => {
+    if (!MATRIX_SERVER_NAME) {
+        throw new ConfigError(
+            'Не задан VITE_MATRIX_SERVER_NAME: укажи домен Matrix ID своего homeserver',
+        );
+    }
+    return MATRIX_SERVER_NAME;
+};

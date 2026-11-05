@@ -16,6 +16,8 @@ const SESSION: MatrixSession = {
     accessToken: 'test-access-token',
     userId: '@alice:example.org',
     deviceId: 'DEVICE1',
+    homeserverUrl: 'https://matrix.example.org',
+    serverName: 'example.org',
 };
 
 const UNKNOWN_TOKEN = { errcode: 'M_UNKNOWN_TOKEN', error: 'Unrecognised access token' };
@@ -115,6 +117,22 @@ describe('handleApiError: прочие ошибки', () => {
         expect(deps.stopClient).not.toHaveBeenCalled();
         expect(deps.clearSession).not.toHaveBeenCalled();
         expect(manager.getState().state).toBe('client ready');
+    });
+});
+
+describe('start: идентичность сессии', () => {
+    it('другой homeserverUrl при тех же credentials пересоздаёт клиент', async () => {
+        const deps = makeDeps();
+        const manager = new MatrixLifecycleManager(deps);
+        await manager.start(SESSION);
+
+        await manager.start({ ...SESSION, homeserverUrl: 'https://matrix-alt.example.org' });
+
+        expect(deps.initClient).toHaveBeenCalledTimes(2);
+        expect(deps.initClient).toHaveBeenLastCalledWith({
+            ...SESSION,
+            homeserverUrl: 'https://matrix-alt.example.org',
+        });
     });
 });
 

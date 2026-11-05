@@ -33,7 +33,7 @@ export const trimReplyFromFormattedBody = (formattedBody: string): string => {
 /** Полное содержимое, которое нужно отправить как новый ответ. */
 export interface ReplyTarget {
     id: string;
-    sender: string;
+    senderId: string;
     body: string;
 }
 
@@ -63,7 +63,7 @@ interface EditMessageContent {
 /** Content ответа: цитата в body (fallback) + m.in_reply_to. */
 export const buildReplyContent = (target: ReplyTarget, text: string): ReplyMessageContent => ({
     msgtype: MsgType.Text,
-    body: parseReplyBody(target.sender, target.body) + text,
+    body: parseReplyBody(target.senderId, target.body) + text,
     'm.relates_to': { 'm.in_reply_to': { event_id: target.id } },
 });
 

@@ -3,7 +3,10 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../../widgets/Sidebar/Sidebar';
 import SettingsMenu from '../../widgets/Settings/SettingsMenu';
 import EncryptionRecoveryGate from '../../widgets/EncryptionRecovery/EncryptionRecovery';
-import { useEffect, useSyncExternalStore } from 'react';
+import ConnectionStatus from './ConnectionStatus';
+import OtkConflictBanner from './OtkConflictBanner';
+import LazyRouteErrorBoundary from '../../shared/ui/LazyRouteErrorBoundary/LazyRouteErrorBoundary';
+import { useEffect, useSyncExternalStore, Suspense } from 'react';
 import {
     getSession,
     matrixLifecycle,
@@ -37,7 +40,19 @@ const MainLayout = () => {
                 <aside className={styles.sidebar}>
                     {isSettings ? <SettingsMenu /> : <Sidebar />}
                 </aside>
-                <main className={styles.content}><Outlet /></main>
+                <main className={styles.content}>
+                    <ConnectionStatus />
+                    <OtkConflictBanner />
+                    {/* lazy-страницы: fallback только внутри контентной области,
+                        Sidebar и ConnectionStatus при навигации не мигуют.
+                        Error boundary ловит rejected lazy-import (новый деплой /
+                        сетевой сбой) и предлагает перезагрузку вместо падения всего app */}
+                    <LazyRouteErrorBoundary>
+                        <Suspense fallback={<p>Загрузка…</p>}>
+                            <Outlet />
+                        </Suspense>
+                    </LazyRouteErrorBoundary>
+                </main>
                 <EncryptionRecoveryGate />
             </div>
         )

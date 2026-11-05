@@ -1,5 +1,5 @@
 import style from './LoginPage.module.css';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     loginUser,
@@ -8,16 +8,25 @@ import {
     getSession,
     clearSession,
     ConfigError,
+    HomeserverDiscoveryError,
     isForbiddenError,
     matrixErrorMessage,
+    resolveLoginTarget,
+    getCapsaHomeserver,
+    type HomeserverConnection,
 } from '../shared/lib/matrix';
+import RegistrationForm from '../widgets/Auth/RegistrationForm';
 
-// честные сообщения об ошибках входа: ошибку конфигурации нельзя
-// маскировать под «неверный пароль» — юзер пойдёт менять не тот пароль
+interface AuthResponse {
+    access_token?: string;
+    user_id?: string;
+    device_id?: string;
+}
+
+// Ошибку конфигурации/discovery нельзя маскировать под неверный пароль.
 const loginErrorMessage = (err: unknown): string => {
-    if (err instanceof ConfigError) return err.message;
+    if (err instanceof ConfigError || err instanceof HomeserverDiscoveryError) return err.message;
     if (isForbiddenError(err)) return 'Неверный логин или пароль.';
-    // сетевые ошибки (TypeError из fetch: нет сети, DNS, CORS) — без errcode
     if (err instanceof TypeError) return 'Не удалось связаться с сервером. Проверьте соединение.';
     return `Не удалось войти: ${matrixErrorMessage(err)}`;
 };
@@ -26,90 +35,133 @@ const LoginPage = () => {
     const savedSession = getSession();
     const navigate = useNavigate();
     const location = useLocation();
-    // понятное сообщение от lifecycle (например, «Сессия истекла, войдите снова»):
-    // его передаёт AuthGuard одним местом — здесь только отображаем
     const notice = (location.state as { message?: string } | null)?.message ?? null;
-
-    useEffect(() => {
-        if (savedSession) {
-            navigate('/chats');
-        }
-    }, [savedSession, navigate])
-
+    const [mode, setMode] = useState<'login' | 'register'>('login');
     const [login, setLogin] = useState('');
-    const [password, setPassword] = useState('')
+    const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const loginAttemptRef = useRef(0);
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
+    useEffect(() => {
+        if (savedSession) navigate('/chats');
+    }, [savedSession, navigate]);
+
+    const completeAuth = (result: AuthResponse, connection: HomeserverConnection) => {
+        validateLoginResponse(result);
+        saveSession({
+            accessToken: result.access_token!,
+            userId: result.user_id!,
+            deviceId: result.device_id!,
+            homeserverUrl: connection.homeserverUrl,
+            serverName: connection.serverName,
+        });
+        navigate('/chats');
+    };
+
+    const switchMode = (nextMode: 'login' | 'register') => {
+        if (nextMode === mode) return;
+        loginAttemptRef.current += 1;
+        setMode(nextMode);
+        setError(null);
+        setIsSubmitting(false);
+    };
+
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
         if (isSubmitting) return;
 
+        const attempt = ++loginAttemptRef.current;
         setIsSubmitting(true);
         setError(null);
         try {
-            const result = await loginUser(login, password);
-
-            // явная валидация полей login-ответа — до saveSession:
-            // — access_token / device_id строго непустая строка;
-            // — user_id строго по форме @localpart:homeserver;
-            // — токен нигде не логируется
-            validateLoginResponse(result);
-
-            saveSession({
-                accessToken: result.access_token!,
-                userId: result.user_id!,
-                deviceId: result.device_id!,
-            });
-
-            navigate('/chats');
+            const target = await resolveLoginTarget(login);
+            if (attempt !== loginAttemptRef.current) return;
+            const result = await loginUser(target, password);
+            if (attempt !== loginAttemptRef.current) return;
+            completeAuth(result, target);
         } catch (err) {
-            console.error('Login failed', err);
-            // откат: если сессия успела сохраниться частично — стираем,
-            // иначе юзер застрянет в битой сессии с редиректом на /chats
+            if (attempt !== loginAttemptRef.current) return;
             clearSession();
             setError(loginErrorMessage(err));
         } finally {
-            setIsSubmitting(false);
+            if (attempt === loginAttemptRef.current) setIsSubmitting(false);
         }
-    }
-
-
-
+    };
 
     return (
         <div className={style.wrapper}>
             <div className={style.container}>
                 <h2 className={style.title}>Capsa</h2>
-
-                <form
-                    className={style.form} onSubmit={handleSubmit}>
-                    <label htmlFor='login'>Login</label>
-                    <input className={style.input}
-                        value={login}
-                        onChange={(e) => setLogin(e.target.value)}
-                        type="text"
-                        id='login'
-                        placeholder='send your login' />
-
-                    <label htmlFor='password'>Password</label>
-                    <input className={style.input}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        type="password"
-                        id='password'
-                        placeholder="send your password" />
-                    <button className={style.login} type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? 'Вход…' : 'Войти'}
+                <div className={style.tabs} role="tablist" aria-label="Авторизация">
+                    <button
+                        className={mode === 'login' ? style.tabActive : style.tab}
+                        type="button"
+                        role="tab"
+                        id="login-tab"
+                        aria-selected={mode === 'login'}
+                        aria-controls="auth-panel"
+                        onClick={() => switchMode('login')}
+                    >
+                        Вход
                     </button>
-                    {notice && !error && <p className={style.notice}>{notice}</p>}
-                    {error && <p className={style.error}>{error}</p>}
-                </form>
-
+                    <button
+                        className={mode === 'register' ? style.tabActive : style.tab}
+                        type="button"
+                        role="tab"
+                        id="register-tab"
+                        aria-selected={mode === 'register'}
+                        aria-controls="auth-panel"
+                        onClick={() => switchMode('register')}
+                    >
+                        Регистрация
+                    </button>
+                </div>
+                <div
+                    className={style.panel}
+                    role="tabpanel"
+                    id="auth-panel"
+                    aria-labelledby={mode === 'login' ? 'login-tab' : 'register-tab'}
+                >
+                    {mode === 'login' ? (
+                        <form className={style.form} onSubmit={handleSubmit}>
+                            <label htmlFor="login">Matrix ID или логин</label>
+                            <input
+                                className={style.input}
+                                value={login}
+                                onChange={(event) => setLogin(event.target.value)}
+                                type="text"
+                                id="login"
+                                placeholder="@alice:matrix.org"
+                                autoComplete="username"
+                                disabled={isSubmitting}
+                            />
+                            <label htmlFor="password">Password</label>
+                            <input
+                                className={style.input}
+                                value={password}
+                                onChange={(event) => setPassword(event.target.value)}
+                                type="password"
+                                id="password"
+                                placeholder="Ваш пароль"
+                                autoComplete="current-password"
+                                disabled={isSubmitting}
+                            />
+                            <button className={style.login} type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? 'Вход…' : 'Войти'}
+                            </button>
+                            {notice && !error && <p className={style.notice}>{notice}</p>}
+                            {error && <p className={style.error} role="alert">{error}</p>}
+                        </form>
+                    ) : (
+                        <RegistrationForm
+                            onRegistered={(result) => completeAuth(result, getCapsaHomeserver())}
+                        />
+                    )}
+                </div>
             </div>
         </div>
-    )
-}
-
+    );
+};
 
 export default LoginPage;

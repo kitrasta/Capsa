@@ -10,9 +10,9 @@ import { useAutoLoadHistory } from './hooks/useAutoLoadHistory';
 import { useMessageSend } from './hooks/useMessageSend';
 import { useMarkRead } from './hooks/useMarkRead';
 import { useRoomDraft } from './hooks/useRoomDraft';
+import { useTimelineItems } from './hooks/useTimelineItems';
 import { Avatar } from '../../shared/ui/Avatar';
 import MessageBubble from './MessageBubble';
-import { toTimelineItems } from './timelineItems';
 import { SCROLL_LOAD_THRESHOLD } from './constants';
 import styles from './ChatView.module.css';
 import type { MessageView } from './messageView';
@@ -37,19 +37,34 @@ const ChatView = ({ roomId }: Props) => {
 
     const messagesRef = useRef<HTMLDivElement>(null);
     // позиция до подгрузки истории: {scrollHeight, scrollTop}
-    const scrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+    const scrollAnchorRef = useRef<{
+        scrollHeight: number;
+        scrollTop: number;
+        messagesLength: number;
+    } | null>(null);
 
     // захват якоря перед подгрузкой; компенсация — в useLayoutEffect ниже
     const onBeforeLoad = useCallback((keepPosition: boolean) => {
         const el = messagesRef.current;
         if (!el || !keepPosition) return;
-        scrollAnchorRef.current = { scrollHeight: el.scrollHeight, scrollTop: el.scrollTop };
-    }, []);
-    const { loading, loadMore } = useAutoLoadHistory(room, messages.length, messagesRef, onBeforeLoad);
+        scrollAnchorRef.current = {
+            scrollHeight: el.scrollHeight,
+            scrollTop: el.scrollTop,
+            messagesLength: messages.length,
+        };
+    }, [messages.length]);
+    const isAnchorPending = useCallback(() => scrollAnchorRef.current !== null, []);
+    const { loading, loadMore } = useAutoLoadHistory(
+        room,
+        messages.length,
+        messagesRef,
+        onBeforeLoad,
+        isAnchorPending,
+    );
 
     const { send, edit, toggleReaction, typing } = useMessageSend(roomId);
     // прочтение: при открытии, при новых сообщениях (если внизу) и при доскролле вниз
-    useMarkRead(room, isAtBottom, messages.length);
+    useMarkRead(room, isAtBottom, messages);
 
     // Текст, ответ и правка сохраняются отдельно для этой комнаты.
     const {
@@ -63,16 +78,34 @@ const ChatView = ({ roomId }: Props) => {
     // юзер пишет прямо сейчас — статус печати других показываем в подсказке
     const [inputFocused, setInputFocused] = useState(false);
 
+    // производная лента мемоизирована: ввод/фокус/ответ/правка не
+    // пересчитывают все пузыри. Hook до условного return — иначе нарушится
+    // порядок хуков при появлении комнаты.
+    const timelineItems = useTimelineItems(messages, room, client.getUserId());
+
+    // якорь относится только к комнате, где началась пагинация
+    useLayoutEffect(() => {
+        scrollAnchorRef.current = null;
+    }, [roomId]);
+
     // компенсация скролла при пагинации: удерживаем ту же точку чтения
     useLayoutEffect(() => {
         const el = messagesRef.current;
         const anchor = scrollAnchorRef.current;
         if (!el || !anchor) return;
-        if (el.scrollHeight > anchor.scrollHeight) {
-            el.scrollTop = anchor.scrollTop + (el.scrollHeight - anchor.scrollHeight);
-            scrollAnchorRef.current = null;
+        // loading indicator тоже увеличивает scrollHeight, но не является prepend
+        const prepended = messages.length > anchor.messagesLength;
+        const grew = prepended && el.scrollHeight > anchor.scrollHeight;
+        if (grew) {
+            el.scrollTo({
+                top: anchor.scrollTop + (el.scrollHeight - anchor.scrollHeight),
+                behavior: 'instant',
+            });
         }
-    }, [messages.length]);
+        // failed/no-op scrollback не меняет ленту: pending anchor нельзя
+        // оставлять блокировать auto-fill после завершения запроса
+        if (grew || !loading) scrollAnchorRef.current = null;
+    }, [messages.length, loading]);
 
     const handleScroll = () => {
         const el = messagesRef.current;
@@ -92,7 +125,12 @@ const ChatView = ({ roomId }: Props) => {
 
     const handleReply = useCallback(
         (view: MessageView) => {
-            setReplyDraft({ id: view.id, senderName: view.senderName, body: view.body });
+            setReplyDraft({
+                id: view.id,
+                senderId: view.senderId,
+                senderName: view.senderName,
+                body: view.body,
+            });
         },
         [setReplyDraft],
     );
@@ -136,14 +174,21 @@ const ChatView = ({ roomId }: Props) => {
         typing('');
         // юзер сам пишет — хочет видеть своё сообщение
         forceScrollToBottom();
-        const replyTo = replyDraft ? { id: replyDraft.id, sender: replyDraft.senderName, body: replyDraft.body } : undefined;
+        const replyTo = replyDraft
+            ? { id: replyDraft.id, senderId: replyDraft.senderId, body: replyDraft.body }
+            : undefined;
         setReplyDraft(null);
         try {
             await send(value, replyTo);
         } catch {
             setText(value); // send уже залогировал ошибку — вернули текст
             if (replyDraft) {
-                setReplyDraft({ id: replyDraft.id, senderName: replyDraft.senderName, body: replyDraft.body });
+                setReplyDraft({
+                    id: replyDraft.id,
+                    senderId: replyDraft.senderId,
+                    senderName: replyDraft.senderName,
+                    body: replyDraft.body,
+                });
             }
         }
     };
@@ -185,7 +230,7 @@ const ChatView = ({ roomId }: Props) => {
 
             <div className={styles.messages} ref={messagesRef} onScroll={handleScroll}>
                 {loading && <div className={styles.historyLoader}>Загрузка истории…</div>}
-                {toTimelineItems(messages, room, client.getUserId()).map((item) =>
+                {timelineItems.map((item) =>
                     item.kind === 'date' ? (
                         <div key={item.id} className={styles.dateSeparator}>{item.label}</div>
                     ) : (

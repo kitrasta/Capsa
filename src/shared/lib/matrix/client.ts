@@ -4,7 +4,10 @@
 // Публичный API слоя — index.ts.
 import { createClient } from 'matrix-js-sdk';
 import type { MatrixClient } from 'matrix-js-sdk';
+import { logger as sdkLogger } from 'matrix-js-sdk/lib/logger';
+import type { Logger } from 'matrix-js-sdk/lib/logger';
 import type { MatrixSession } from './session';
+import type { LoginTarget } from './homeserver';
 import { clearSession } from './session';
 import {
     createStore,
@@ -19,11 +22,33 @@ import {
     clearSecretStorageKey,
     getSecretStorageKey,
 } from './secret-storage-key';
-import { requireHomeserverUrl } from './config';
+
+import { otkConflict } from './crypto-conflict';
 
 // адрес homeserver'а и server_name — в config.ts (без зависимостей от SDK);
 // ре-экспорт для API-модулей (api/spaces) и обратной совместимости
 export { MATRIX_HOMESERVER_URL, MATRIX_SERVER_NAME } from './config';
+
+// SDK логирует конфликт one-time keys только через logger.error (см.
+// crypto-conflict.ts). Оборачиваем стандартный логгер: все сообщения
+// проходят дальше без изменений, параллельно детектор считает совпадения.
+const loggerWithOtkDetection: Logger = {
+    ...sdkLogger,
+    error: (...args: unknown[]) => {
+        otkConflict.error(...args);
+        sdkLogger.error(...args);
+    },
+    getChild: (namespace: string) => {
+        const child = sdkLogger.getChild(namespace);
+        return {
+            ...child,
+            error: (...args: unknown[]) => {
+                otkConflict.error(...args);
+                child.error(...args);
+            },
+        };
+    },
+};
 
 let client: MatrixClient | null = null;
 
@@ -36,11 +61,12 @@ export const initClient = async (session: MatrixSession): Promise<MatrixClient> 
     }
     const store = await createStore();
     client = createClient({
-        baseUrl: requireHomeserverUrl(),
+        baseUrl: session.homeserverUrl,
         accessToken: session.accessToken,
         userId: session.userId,
         deviceId: session.deviceId,
         store,
+        logger: loggerWithOtkDetection,
         cryptoCallbacks: {
             getSecretStorageKey,
             cacheSecretStorageKey,
@@ -157,16 +183,16 @@ export function validateLoginResponse(
 }
 
 export const loginUser = async (
-    login: string,
+    target: LoginTarget,
     password: string,
 ): Promise<MatrixLoginResponse> => {
-    const tempClient = createClient({ baseUrl: requireHomeserverUrl() });
+    const tempClient = createClient({ baseUrl: target.homeserverUrl });
     return tempClient.loginRequest({  
 
         type: 'm.login.password',
         identifier: {
             type: 'm.id.user',
-            user: login,
+            user: target.identifier,
         },
         password,
     });

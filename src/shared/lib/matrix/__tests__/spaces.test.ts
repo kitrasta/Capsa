@@ -11,7 +11,7 @@ vi.mock('../client', () => ({
     getClient: vi.fn(),
 }));
 
-import { toChildSummaries, getSpaceChildSummaries } from '../api/spaces';
+import { addRoomToSpace, toChildSummaries, getSpaceChildSummaries } from '../api/spaces';
 import { getClient } from '../client';
 import type { IHierarchyRoom } from 'matrix-js-sdk/lib/@types/spaces';
 
@@ -60,6 +60,38 @@ describe('toChildSummaries', () => {
 
     it('пустой список комнат → пустая карта', () => {
         expect(toChildSummaries(SPACE_ID, [])).toEqual(new Map());
+    });
+});
+
+describe('addRoomToSpace', () => {
+    it('без server name не отправляет событие с пустым via', async () => {
+        const sendStateEvent = vi.fn(async () => '$event');
+        vi.mocked(getClient).mockReturnValue({
+            getDomain: () => null,
+            sendStateEvent,
+        } as unknown as ReturnType<typeof getClient>);
+
+        await expect(addRoomToSpace(SPACE_ID, '!child:example.org')).rejects.toThrow(
+            'Не удалось определить сервер текущего аккаунта',
+        );
+        expect(sendStateEvent).not.toHaveBeenCalled();
+    });
+
+    it('использует server name текущего клиента для via', async () => {
+        const sendStateEvent = vi.fn(async () => '$event');
+        vi.mocked(getClient).mockReturnValue({
+            getDomain: () => 'elsewhere.org',
+            sendStateEvent,
+        } as unknown as ReturnType<typeof getClient>);
+
+        await addRoomToSpace(SPACE_ID, '!child:example.org');
+
+        expect(sendStateEvent).toHaveBeenCalledWith(
+            SPACE_ID,
+            'm.space.child',
+            { via: ['elsewhere.org'] },
+            '!child:example.org',
+        );
     });
 });
 
