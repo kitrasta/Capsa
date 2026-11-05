@@ -77,7 +77,12 @@ export {
     addRoomToSpace,
     getSpaceChildSummaries,
     type ChildSummary,
+    type SpaceChildSummary,
 } from './api/spaces';
+export {
+    getDirectSpaceChildIds,
+    getJoinedSpaceRoots,
+} from './api/space-folders';
 export { setDisplayName, setAvatar } from './api/profile';
 
 // разовая очистка крипто-базы старого формата при старте
