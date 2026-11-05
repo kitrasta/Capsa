@@ -8,10 +8,12 @@ import OtkConflictBanner from './OtkConflictBanner';
 import LazyRouteErrorBoundary from '../../shared/ui/LazyRouteErrorBoundary/LazyRouteErrorBoundary';
 import { useEffect, useSyncExternalStore, Suspense } from 'react';
 import {
+    getClient,
     getSession,
     matrixLifecycle,
     cleanupLegacyCryptoStore,
 } from '../../shared/lib/matrix';
+import { subscribeToMessageNotifications } from '../../shared/lib/notifications';
 
 const MainLayout = () => {
     const snapshot = useSyncExternalStore(
@@ -33,6 +35,11 @@ const MainLayout = () => {
         // разовая подчистка сироты от старого нейминга крипто-базы + запуск клиента
         void cleanupLegacyCryptoStore().then(() => matrixLifecycle.start(session));
     }, [])
+
+    useEffect(() => {
+        if (snapshot.state !== 'client ready') return;
+        return subscribeToMessageNotifications(getClient());
+    }, [snapshot.state]);
 
     if (snapshot.state === 'client ready') {
         return (

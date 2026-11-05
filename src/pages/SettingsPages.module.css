@@ -262,6 +262,32 @@
     accent-color: var(--c-brand);
 }
 
+.toggleRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    cursor: pointer;
+}
+
+.toggleRow input[type='checkbox'] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--c-brand);
+}
+
+.toggleRow input[type='checkbox']:disabled {
+    cursor: default;
+}
+
+.permissionNotice {
+    margin: 0 0 14px;
+    color: var(--c-text-2);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 @media (max-width: 768px) {
     .wrapper {
         padding: 16px;
