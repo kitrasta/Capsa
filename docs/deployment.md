@@ -114,9 +114,9 @@ curl -fsS https://capsachat.org/.well-known/matrix/server
 curl -fsS https://matrix.capsachat.org/_matrix/client/versions >/dev/null
 ```
 
-### release validation: persistence после recreate
+### Проверка persistence после recreate
 
-После успешных health checks повторно пересоздайте только Caddy и убедитесь, что candidate и активный root сохраняются, а `/` и nested route снова возвращают HTTP 200. Этот второй recreate является обязательной persistence-проверкой release validation и не заменяет recreate при активации.
+После успешных health checks повторно пересоздайте только Caddy и убедитесь, что candidate и активный root сохраняются, а `/` и nested route снова возвращают HTTP 200. Этот второй recreate является обязательной persistence-проверкой и не заменяет recreate при активации.
 
 ```bash
 ssh "$CAPSA_DEPLOY_TARGET" '
