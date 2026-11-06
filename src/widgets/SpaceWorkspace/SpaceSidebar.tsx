@@ -3,6 +3,12 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import SpaceAvatar from './SpaceAvatar';
 import { useSpaceWorkspaceContext } from './SpaceWorkspaceContext';
 import type { SpaceWorkspaceItem } from './useSpaceWorkspace';
+import {
+    childSpaceNavigationState,
+    parentSpaceNavigationState,
+    readSpaceAncestry,
+    spaceNavigationState,
+} from './spaceNavigation';
 import styles from './SpaceWorkspace.module.css';
 
 const SpaceSidebar = () => {
@@ -10,11 +16,11 @@ const SpaceSidebar = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { space, items, joinedRooms, unavailable } = useSpaceWorkspaceContext();
-    const parentState = (location.state as { parentSpaceId?: unknown } | null)?.parentSpaceId;
-    const parentSpaceId = typeof parentState === 'string' ? parentState : null;
+    const ancestry = readSpaceAncestry(location.state, spaceId);
+    const parentSpaceId = ancestry.at(-1) ?? null;
     const name = space?.name || spaceId.split(':')[0];
     const nestedSpaces = items.filter((item) => item.kind === 'space' && item.joined);
-    const state = parentSpaceId ? { parentSpaceId } : undefined;
+    const state = spaceNavigationState(ancestry);
 
     const openOverview = () => {
         navigate(`/spaces/${encodeURIComponent(spaceId)}`, { state });
@@ -29,7 +35,17 @@ const SpaceSidebar = () => {
 
     const openSpace = (item: SpaceWorkspaceItem) => {
         navigate(`/spaces/${encodeURIComponent(item.roomId)}`, {
-            state: { parentSpaceId: spaceId },
+            state: childSpaceNavigationState(location.state, spaceId, item.roomId),
+        });
+    };
+
+    const goBack = () => {
+        if (!parentSpaceId) {
+            navigate('/chats');
+            return;
+        }
+        navigate(`/spaces/${encodeURIComponent(parentSpaceId)}`, {
+            state: parentSpaceNavigationState(location.state, spaceId),
         });
     };
 
@@ -39,9 +55,7 @@ const SpaceSidebar = () => {
                 <button
                     className={styles.iconButton}
                     type="button"
-                    onClick={() => navigate(parentSpaceId
-                        ? `/spaces/${encodeURIComponent(parentSpaceId)}`
-                        : '/chats')}
+                    onClick={goBack}
                     aria-label={parentSpaceId
                         ? 'Назад к родительскому пространству'
                         : 'Назад к списку чатов'}

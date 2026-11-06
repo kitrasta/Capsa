@@ -65,6 +65,10 @@ export const useSpaceWorkspace = (spaceId: string): SpaceWorkspaceModel => {
     const available = space?.isSpaceRoom() === true && space.getMyMembership() === 'join';
     const directChildIds = available ? getDirectSpaceChildIds(space) : [];
     const childSignature = [...directChildIds].sort().join('\0');
+    const joinedRoomSignature = directChildIds.filter((roomId) => {
+        const room = client.getRoom(roomId);
+        return room?.getMyMembership() === 'join' && !room.isSpaceRoom();
+    }).sort().join('\0');
 
     useEffect(() => {
         const refresh = () => setVersion((value) => value + 1);
@@ -86,6 +90,27 @@ export const useSpaceWorkspace = (spaceId: string): SpaceWorkspaceModel => {
             client.off(RoomStateEvent.Events, refresh);
         };
     }, [client]);
+
+    useEffect(() => {
+        const handlers = new Map<Room, () => void>();
+        if (joinedRoomSignature) {
+            for (const roomId of joinedRoomSignature.split('\0')) {
+                const room = client.getRoom(roomId);
+                if (!room) continue;
+                const handler = () => setVersion((value) => value + 1);
+                handlers.set(room, handler);
+                room.on(RoomEvent.UnreadNotifications, handler);
+                room.on(RoomEvent.Receipt, handler);
+            }
+        }
+
+        return () => {
+            for (const [room, handler] of handlers) {
+                room.off(RoomEvent.UnreadNotifications, handler);
+                room.off(RoomEvent.Receipt, handler);
+            }
+        };
+    }, [client, joinedRoomSignature]);
 
     useEffect(() => {
         const generation = ++requestGeneration.current;

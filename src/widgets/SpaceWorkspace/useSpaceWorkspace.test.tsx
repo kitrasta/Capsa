@@ -45,29 +45,47 @@ interface RoomOptions {
     avatarUrl?: string | null;
 }
 
+type TestRoom = Room & { emit: (event: string) => void };
+
 const makeRoom = (
     roomId: string,
     name: string,
     options: RoomOptions = {},
-): Room => ({
-    roomId,
-    name,
-    isSpaceRoom: () => options.space === true,
-    getMyMembership: () => options.membership ?? 'join',
-    getLastActiveTimestamp: () => options.timestamp ?? 0,
-    getRoomUnreadNotificationCount: (type: NotificationCountType) => (
-        type === NotificationCountType.Total ? options.unread ?? 0 : 0
-    ),
-    getJoinedMemberCount: () => options.memberCount ?? 0,
-    getMxcAvatarUrl: () => options.avatarUrl ?? null,
-    currentState: {
-        getStateEvents: (eventType: string) => (
-            eventType === EventType.SpaceChild
-                ? (options.children ?? []).map(childEvent)
-                : []
+): TestRoom => {
+    const listeners = new Map<string, Set<Listener>>();
+    const room = {
+        roomId,
+        name,
+        isSpaceRoom: () => options.space === true,
+        getMyMembership: () => options.membership ?? 'join',
+        getLastActiveTimestamp: () => options.timestamp ?? 0,
+        getRoomUnreadNotificationCount: (type: NotificationCountType) => (
+            type === NotificationCountType.Total ? options.unread ?? 0 : 0
         ),
-    },
-} as unknown as Room);
+        getJoinedMemberCount: () => options.memberCount ?? 0,
+        getMxcAvatarUrl: () => options.avatarUrl ?? null,
+        on: vi.fn((event: string, listener: Listener) => {
+            const eventListeners = listeners.get(event) ?? new Set<Listener>();
+            eventListeners.add(listener);
+            listeners.set(event, eventListeners);
+        }),
+        off: vi.fn((event: string, listener: Listener) => {
+            listeners.get(event)?.delete(listener);
+        }),
+        currentState: {
+            getStateEvents: (eventType: string) => (
+                eventType === EventType.SpaceChild
+                    ? (options.children ?? []).map(childEvent)
+                    : []
+            ),
+        },
+    } as unknown as TestRoom;
+    room.emit = (event: string) => {
+        listeners.get(event)?.forEach((listener) => listener());
+        return true;
+    };
+    return room;
+};
 
 const summary = (
     name: string,
@@ -302,6 +320,60 @@ describe('useSpaceWorkspace', () => {
         act(() => emit(RoomEvent.Timeline));
 
         expect(result.current.joinedRooms[0]).toMatchObject({ unread: 4, lastActivityTs: 50 });
+    });
+
+    it.each([
+        RoomEvent.UnreadNotifications,
+        RoomEvent.Receipt,
+    ])('increases and clears unread after %s without a timeline event', (event) => {
+        let unread = 1;
+        const child = makeRoom('!joined:example.org', 'General');
+        child.getRoomUnreadNotificationCount = () => unread;
+        const space = makeRoom('!space:example.org', 'Company', {
+            space: true,
+            children: [child.roomId],
+        });
+        setup([space, child]);
+        const { result } = renderHook(() => useSpaceWorkspace(space.roomId));
+
+        unread = 4;
+        act(() => child.emit(event));
+        expect(result.current.joinedRooms[0].unread).toBe(4);
+
+        unread = 0;
+        act(() => child.emit(event));
+        expect(result.current.joinedRooms[0].unread).toBe(0);
+    });
+
+    it('subscribes only to joined direct rooms and cleans up as membership changes', () => {
+        let otherMembership = 'leave';
+        const joined = makeRoom('!joined:example.org', 'General');
+        const other = makeRoom('!other:example.org', 'Other');
+        other.getMyMembership = () => otherMembership;
+        const space = makeRoom('!space:example.org', 'Company', {
+            space: true,
+            children: [joined.roomId, other.roomId],
+        });
+        const { emit } = setup([space, joined, other]);
+        const { unmount } = renderHook(() => useSpaceWorkspace(space.roomId));
+
+        expect(joined.on).toHaveBeenCalledWith(RoomEvent.UnreadNotifications, expect.any(Function));
+        expect(joined.on).toHaveBeenCalledWith(RoomEvent.Receipt, expect.any(Function));
+        expect(other.on).not.toHaveBeenCalled();
+
+        otherMembership = 'join';
+        act(() => emit(RoomEvent.MyMembership));
+        expect(other.on).toHaveBeenCalledWith(RoomEvent.UnreadNotifications, expect.any(Function));
+        expect(other.on).toHaveBeenCalledWith(RoomEvent.Receipt, expect.any(Function));
+
+        otherMembership = 'leave';
+        act(() => emit(RoomEvent.MyMembership));
+        expect(other.off).toHaveBeenCalledWith(RoomEvent.UnreadNotifications, expect.any(Function));
+        expect(other.off).toHaveBeenCalledWith(RoomEvent.Receipt, expect.any(Function));
+
+        unmount();
+        expect(joined.off).toHaveBeenCalledWith(RoomEvent.UnreadNotifications, expect.any(Function));
+        expect(joined.off).toHaveBeenCalledWith(RoomEvent.Receipt, expect.any(Function));
     });
 
     it('refreshes after prepared sync and removes the registered listeners on unmount', () => {

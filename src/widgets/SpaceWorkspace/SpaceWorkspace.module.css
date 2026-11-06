@@ -302,22 +302,8 @@
     cursor: pointer;
 }
 
-.mobileRootBack,
-.mobileRoomBack {
+.mobileRootBack {
     display: none;
-}
-
-.roomPanel {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.roomPanel > :last-child {
-    flex: 1;
-    min-height: 0;
 }
 
 @media (max-width: 768px) {
@@ -354,20 +340,6 @@
     .catalogItem {
         min-height: 68px;
         padding: 10px 12px;
-    }
-
-    .mobileRoomBack {
-        min-height: 46px;
-        display: flex;
-        flex: 0 0 auto;
-        align-items: center;
-        gap: 6px;
-        padding: calc(5px + env(safe-area-inset-top, 0px)) 10px 5px;
-        border: none;
-        border-bottom: 1px solid var(--c-border);
-        background: var(--c-bg-elv);
-        color: var(--c-text-2);
-        cursor: pointer;
     }
 
     .unavailable {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import type { MatrixClient, MatrixEvent, Room } from 'matrix-js-sdk';
 import { getClient } from '../../../shared/lib/matrix';
 import { useRoomReady } from '../hooks/useRoomReady';
@@ -83,10 +83,21 @@ const seedDraft = (
     );
 };
 
-const renderChat = () =>
+const ChatLocation = () => {
+    const location = useLocation();
+    return (
+        <>
+            <output data-testid="chat-location">{location.pathname}</output>
+            <output data-testid="chat-location-state">{JSON.stringify(location.state)}</output>
+        </>
+    );
+};
+
+const renderChat = (backTo?: string, backState?: unknown) =>
     render(
         <MemoryRouter>
-            <ChatView roomId={ROOM_ID} />
+            <ChatView roomId={ROOM_ID} backTo={backTo} backState={backState} />
+            <ChatLocation />
         </MemoryRouter>,
     );
 
@@ -145,6 +156,26 @@ const makeMessage = (id: string, ts: number): MatrixEvent =>
         replyEventId: undefined,
         status: null,
     }) as unknown as MatrixEvent;
+
+describe('ChatView: back navigation', () => {
+    it('сохраняет возврат в /chats вне Space', () => {
+        renderChat();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Назад к списку чатов' }));
+
+        expect(screen.getByTestId('chat-location').textContent).toBe('/chats');
+    });
+
+    it('возвращает в Space overview и сохраняет navigation state', () => {
+        const backState = { spaceAncestry: ['!space:example.org'] };
+        renderChat('/spaces/!space%3Aexample.org', backState);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Назад к обзору пространства' }));
+
+        expect(screen.getByTestId('chat-location').textContent).toBe('/spaces/!space%3Aexample.org');
+        expect(screen.getByTestId('chat-location-state').textContent).toBe(JSON.stringify(backState));
+    });
+});
 
 describe('ChatView: read markers', () => {
     it('передаёт messages array, включая same-length LocalEchoUpdated, в useMarkRead', () => {

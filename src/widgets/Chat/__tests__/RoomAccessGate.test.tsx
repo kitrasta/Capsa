@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
     getRoomAccess: vi.fn(),
     joinRoom: vi.fn(),
     knockRoom: vi.fn(),
+    navigate: vi.fn(),
+    chatView: vi.fn(),
 }));
 
 vi.mock('../../../shared/lib/matrix', () => ({
@@ -21,9 +23,12 @@ vi.mock('../../../shared/lib/matrix', () => ({
 }));
 
 vi.mock('../ChatView', () => ({
-    default: ({ roomId }: { roomId: string }) => <div data-testid="joined-chat">{roomId}</div>,
+    default: (props: { roomId: string; backTo?: string; backState?: unknown }) => {
+        mocks.chatView(props);
+        return <div data-testid="joined-chat">{props.roomId}</div>;
+    },
 }));
-vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
+vi.mock('react-router-dom', () => ({ useNavigate: () => mocks.navigate }));
 
 import RoomAccessGate from '../RoomAccessGate';
 
@@ -96,6 +101,45 @@ describe('RoomAccessGate', () => {
         render(<RoomAccessGate roomId="!room:example.org" />);
 
         expect((await screen.findByTestId('joined-chat')).textContent).toBe('!room:example.org');
+    });
+
+    it('передаёт route-aware back destination и state в joined ChatView', async () => {
+        mocks.getRoomAccess.mockResolvedValue(access('joined'));
+        const backState = { spaceAncestry: ['!space:example.org'] };
+
+        render(
+            <RoomAccessGate
+                roomId="!room:example.org"
+                backTo="/spaces/!space%3Aexample.org"
+                backState={backState}
+            />,
+        );
+
+        await screen.findByTestId('joined-chat');
+        expect(mocks.chatView.mock.calls.at(-1)?.[0]).toMatchObject({
+            roomId: '!room:example.org',
+            backTo: '/spaces/!space%3Aexample.org',
+            backState,
+        });
+    });
+
+    it('использует route-aware back destination в access header', async () => {
+        mocks.getRoomAccess.mockResolvedValue(access('public'));
+        const backState = { spaceAncestry: ['!space:example.org'] };
+        render(
+            <RoomAccessGate
+                roomId="!room:example.org"
+                backTo="/spaces/!space%3Aexample.org"
+                backState={backState}
+            />,
+        );
+
+        fireEvent.click(await screen.findByRole('button', {
+            name: 'Назад к обзору пространства',
+        }));
+        expect(mocks.navigate).toHaveBeenCalledWith('/spaces/!space%3Aexample.org', {
+            state: backState,
+        });
     });
 
     it('вступает в public комнату из footer и после sync показывает ChatView', async () => {

@@ -19,9 +19,11 @@ import type { MessageView } from './messageView';
 
 interface Props {
     roomId: string;
+    backTo?: string;
+    backState?: unknown;
 }
 
-const ChatView = ({ roomId }: Props) => {
+const ChatView = ({ roomId, backTo, backState }: Props) => {
     const navigate = useNavigate();
     const client = getClient();
 
@@ -215,7 +217,13 @@ const ChatView = ({ roomId }: Props) => {
     return (
         <div className={styles.wrapper}>
             <header className={styles.header}>
-                <button className={styles.backButton} onClick={() => navigate('/chats')} aria-label="Назад к списку чатов"><ArrowLeft size={21} /></button>
+                <button
+                    className={styles.backButton}
+                    onClick={() => navigate(backTo ?? '/chats', { state: backState })}
+                    aria-label={backTo ? 'Назад к обзору пространства' : 'Назад к списку чатов'}
+                >
+                    <ArrowLeft size={21} />
+                </button>
                 <Avatar room={room} size={40} />
                 <div className={styles.headerInfo}>
                     <div className={styles.headerName}>

@@ -17,6 +17,8 @@ import styles from './RoomAccessGate.module.css';
 
 interface Props {
     roomId: string;
+    backTo?: string;
+    backState?: unknown;
 }
 
 interface AccessResult {
@@ -55,7 +57,7 @@ const PeekTimeline = ({ room }: { room: Room }) => {
     );
 };
 
-const RoomAccessGate = ({ roomId }: Props) => {
+const RoomAccessGate = ({ roomId, backTo, backState }: Props) => {
     const navigate = useNavigate();
     const client = getClient();
     const generation = useRef(0);
@@ -152,7 +154,9 @@ const RoomAccessGate = ({ roomId }: Props) => {
         );
     }
 
-    if (access.kind === 'joined') return <ChatView roomId={roomId} />;
+    if (access.kind === 'joined') {
+        return <ChatView roomId={roomId} backTo={backTo} backState={backState} />;
+    }
 
     const name = access.summary?.name ?? fallbackName(roomId);
     const memberCount = access.summary?.memberCount ?? 0;
@@ -164,8 +168,8 @@ const RoomAccessGate = ({ roomId }: Props) => {
                 <button
                     className={styles.backButton}
                     type="button"
-                    onClick={() => navigate('/chats')}
-                    aria-label="Назад к списку чатов"
+                    onClick={() => navigate(backTo ?? '/chats', { state: backState })}
+                    aria-label={backTo ? 'Назад к обзору пространства' : 'Назад к списку чатов'}
                 >
                     <ArrowLeft size={21} />
                 </button>

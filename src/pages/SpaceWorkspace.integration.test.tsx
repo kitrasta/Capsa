@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { ClientEvent, EventType, NotificationCountType } from 'matrix-js-sdk';
 import type { MatrixClient, MatrixEvent, Room } from 'matrix-js-sdk';
 import type { RoomAccess, SpaceChildSummary } from '../shared/lib/matrix';
@@ -10,6 +10,7 @@ const SPACE_ID = '!space:example.org';
 const JOINED_ID = '!joined:example.org';
 const PUBLIC_ID = '!public:example.org';
 const NESTED_ID = '!nested:example.org';
+const DEEP_NESTED_ID = '!deep-nested:example.org';
 
 const mocks = vi.hoisted(() => ({
     getClient: vi.fn(),
@@ -52,9 +53,22 @@ vi.mock('../widgets/Sidebar/Sidebar', () => ({
     default: () => <RoomList />,
 }));
 
-vi.mock('../widgets/Chat/ChatView', () => ({
-    default: () => <textarea aria-label="Сообщение" />,
-}));
+vi.mock('../widgets/Chat/ChatView', () => {
+    const MockChatView = ({ backTo, backState }: { backTo?: string; backState?: unknown }) => {
+        const navigate = useNavigate();
+        return (
+            <div>
+                <button
+                    type="button"
+                    aria-label={backTo ? 'Назад к обзору пространства' : 'Назад к списку чатов'}
+                    onClick={() => navigate(backTo ?? '/chats', { state: backState })}
+                />
+                <textarea aria-label="Сообщение" />
+            </div>
+        );
+    };
+    return { default: MockChatView };
+});
 
 import AppRouter from '../app/router/app-router';
 import RoomList from '../widgets/Sidebar/RoomList/RoomList';
@@ -125,8 +139,8 @@ const LocationProbe = () => {
     return <output data-testid="location">{location.pathname}</output>;
 };
 
-const renderRoute = (initialEntry: string) => render(
-    <MemoryRouter initialEntries={[initialEntry]}>
+const renderRoute = (initialEntry: string, state?: unknown) => render(
+    <MemoryRouter initialEntries={[{ pathname: initialEntry, state }]}>
         <AppRouter />
         <LocationProbe />
     </MemoryRouter>,
@@ -154,7 +168,11 @@ describe('Space workspace routes', () => {
                 memberCount: 12,
             }),
             makeRoom(JOINED_ID, 'Общий', { timestamp: 20, unread: 3 }),
-            makeRoom(NESTED_ID, 'Разработка', { space: true }),
+            makeRoom(NESTED_ID, 'Разработка', {
+                space: true,
+                children: [DEEP_NESTED_ID],
+            }),
+            makeRoom(DEEP_NESTED_ID, 'Платформа', { space: true }),
         ];
         const client = {
             getRoom: (roomId: string) => rooms.find((room) => room.roomId === roomId) ?? null,
@@ -278,21 +296,37 @@ describe('Space workspace routes', () => {
         expect(await screen.findByRole('button', { name: 'Вступить в комнату' })).toBeTruthy();
         expect(screen.getByTestId('location').textContent).toBe(roomPath(PUBLIC_ID));
         expect(screen.queryByRole('textbox', { name: 'Сообщение' })).toBeNull();
+        const main = screen.getByRole('main');
+        expect(within(main).getAllByRole('button', {
+            name: 'Назад к обзору пространства',
+        })).toHaveLength(1);
+        expect(within(main).queryByRole('button', { name: 'Назад к списку чатов' })).toBeNull();
+
+        fireEvent.click(within(main).getByRole('button', {
+            name: 'Назад к обзору пространства',
+        }));
+        expect(screen.getByTestId('location').textContent).toBe(spacePath());
     });
 
-    it('opens a nested Space and returns to its actual parent', async () => {
+    it('preserves ancestry through A to B to C and back to B to A', async () => {
         renderRoute(spacePath());
-        const overview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        const rootOverview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        fireEvent.click(within(rootOverview).getByRole('button', { name: /Разработка/ }));
 
-        fireEvent.click(within(overview).getByRole('button', { name: /Разработка/ }));
+        const nestedOverview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        fireEvent.click(within(nestedOverview).getByRole('button', { name: /Платформа/ }));
+        expect(screen.getByTestId('location').textContent).toBe(spacePath(DEEP_NESTED_ID));
 
-        expect(screen.getByTestId('location').textContent).toBe(spacePath(NESTED_ID));
-        expect((await screen.findAllByText('Разработка')).length).toBeGreaterThan(0);
-        const nestedOverview = screen.getByRole('region', { name: 'Обзор пространства' });
-        fireEvent.click(within(nestedOverview).getByRole('button', {
+        let currentOverview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        fireEvent.click(within(currentOverview).getByRole('button', {
             name: 'Назад к родительскому пространству',
         }));
+        expect(screen.getByTestId('location').textContent).toBe(spacePath(NESTED_ID));
 
+        currentOverview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        fireEvent.click(within(currentOverview).getByRole('button', {
+            name: 'Назад к родительскому пространству',
+        }));
         expect(screen.getByTestId('location').textContent).toBe(spacePath());
         expect(await screen.findByText('Рабочее пространство команды')).toBeTruthy();
     });
@@ -316,6 +350,31 @@ describe('Space workspace routes', () => {
         expect(await screen.findByText('Рабочее пространство команды')).toBeTruthy();
     });
 
+    it('preserves ancestry through an unavailable deep nested Space', async () => {
+        const client = mocks.getClient() as MatrixClient;
+        const deepNested = client.getRoom(DEEP_NESTED_ID)!;
+        deepNested.getMyMembership = () => 'leave';
+        renderRoute(spacePath());
+        const rootOverview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        fireEvent.click(within(rootOverview).getByRole('button', { name: /Разработка/ }));
+        const nestedOverview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        fireEvent.click(within(nestedOverview).getByRole('button', { name: /Платформа/ }));
+
+        let currentOverview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        expect(within(currentOverview).getByText('Пространство недоступно')).toBeTruthy();
+        fireEvent.click(within(currentOverview).getByRole('button', {
+            name: 'Назад к родительскому пространству',
+        }));
+        expect(screen.getByTestId('location').textContent).toBe(spacePath(NESTED_ID));
+
+        currentOverview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        fireEvent.click(within(currentOverview).getByRole('button', {
+            name: 'Назад к родительскому пространству',
+        }));
+        expect(screen.getByTestId('location').textContent).toBe(spacePath());
+        expect(await screen.findByText('Рабочее пространство команды')).toBeTruthy();
+    });
+
     it('retains Space and room context on a direct room URL', async () => {
         renderRoute(roomPath());
 
@@ -327,11 +386,51 @@ describe('Space workspace routes', () => {
         ).toBe('page');
     });
 
+    it('blocks room access on a direct URL for a missing Space and returns to root', async () => {
+        renderRoute(roomPath(JOINED_ID, '!missing:example.org'));
+
+        const overview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        expect(within(overview).getByText('Пространство недоступно')).toBeTruthy();
+        expect(screen.queryByRole('textbox', { name: 'Сообщение' })).toBeNull();
+        expect(mocks.getRoomAccess).not.toHaveBeenCalled();
+
+        fireEvent.click(within(overview).getByRole('button', { name: 'Все чаты' }));
+        await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/chats'));
+    });
+
+    it('blocks room access for a newly left Space and returns to its parent', async () => {
+        const client = mocks.getClient() as MatrixClient;
+        const nested = client.getRoom(NESTED_ID)!;
+        nested.getMyMembership = () => 'leave';
+        renderRoute(roomPath(JOINED_ID, NESTED_ID), {
+            parentSpaceId: SPACE_ID,
+            spaceAncestry: [SPACE_ID],
+        });
+
+        const overview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        expect(within(overview).getByText('Пространство недоступно')).toBeTruthy();
+        expect(screen.queryByRole('textbox', { name: 'Сообщение' })).toBeNull();
+        expect(mocks.getRoomAccess).not.toHaveBeenCalled();
+
+        fireEvent.click(within(overview).getByRole('button', {
+            name: 'Назад к родительскому пространству',
+        }));
+        expect(screen.getByTestId('location').textContent).toBe(spacePath());
+        expect(await screen.findByText('Рабочее пространство команды')).toBeTruthy();
+    });
+
     it('returns from a room to its Space overview on mobile', async () => {
         renderRoute(roomPath());
         expect(await screen.findByRole('textbox', { name: 'Сообщение' })).toBeTruthy();
 
-        fireEvent.click(screen.getByRole('button', { name: 'Назад к обзору пространства' }));
+        const main = screen.getByRole('main');
+        expect(within(main).getAllByRole('button', {
+            name: 'Назад к обзору пространства',
+        })).toHaveLength(1);
+        expect(within(main).queryByRole('button', { name: 'Назад к списку чатов' })).toBeNull();
+        fireEvent.click(within(main).getByRole('button', {
+            name: 'Назад к обзору пространства',
+        }));
 
         expect(screen.getByTestId('location').textContent).toBe(spacePath());
         expect(await screen.findByText('Рабочее пространство команды')).toBeTruthy();

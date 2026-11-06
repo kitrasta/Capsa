@@ -3,6 +3,12 @@ import { EventType } from 'matrix-js-sdk';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import SpaceAvatar from './SpaceAvatar';
 import { useSpaceWorkspaceContext } from './SpaceWorkspaceContext';
+import {
+    childSpaceNavigationState,
+    parentSpaceNavigationState,
+    readSpaceAncestry,
+    spaceNavigationState,
+} from './spaceNavigation';
 import styles from './SpaceWorkspace.module.css';
 
 const SpaceOverview = () => {
@@ -16,9 +22,18 @@ const SpaceOverview = () => {
         enrichmentError,
         unavailable,
     } = useSpaceWorkspaceContext();
-    const parentState = (location.state as { parentSpaceId?: unknown } | null)?.parentSpaceId;
-    const parentSpaceId = typeof parentState === 'string' ? parentState : null;
-    const state = parentSpaceId ? { parentSpaceId } : undefined;
+    const ancestry = readSpaceAncestry(location.state, spaceId);
+    const parentSpaceId = ancestry.at(-1) ?? null;
+    const state = spaceNavigationState(ancestry);
+    const goBack = () => {
+        if (!parentSpaceId) {
+            navigate('/chats');
+            return;
+        }
+        navigate(`/spaces/${encodeURIComponent(parentSpaceId)}`, {
+            state: parentSpaceNavigationState(location.state, spaceId),
+        });
+    };
     const name = space?.name || spaceId.split(':')[0];
     const topicEvent = space?.currentState.getStateEvents(EventType.RoomTopic, '');
     const topic = topicEvent?.getContent<{ topic?: unknown }>().topic;
@@ -33,9 +48,7 @@ const SpaceOverview = () => {
                     <button
                         className={styles.rootButton}
                         type="button"
-                        onClick={() => navigate(parentSpaceId
-                            ? `/spaces/${encodeURIComponent(parentSpaceId)}`
-                            : '/chats')}
+                        onClick={goBack}
                     >
                         {parentSpaceId ? 'Назад к родительскому пространству' : 'Все чаты'}
                     </button>
@@ -49,9 +62,7 @@ const SpaceOverview = () => {
             <button
                 className={styles.mobileRootBack}
                 type="button"
-                onClick={() => navigate(parentSpaceId
-                    ? `/spaces/${encodeURIComponent(parentSpaceId)}`
-                    : '/chats')}
+                onClick={goBack}
                 aria-label={parentSpaceId ? 'Назад к родительскому пространству' : 'Все чаты'}
             >
                 <ArrowLeft size={20} />
@@ -98,7 +109,11 @@ const SpaceOverview = () => {
                                 onClick={() => {
                                     if (item.kind === 'space') {
                                         navigate(`/spaces/${encodeURIComponent(item.roomId)}`, {
-                                            state: { parentSpaceId: spaceId },
+                                            state: childSpaceNavigationState(
+                                                location.state,
+                                                spaceId,
+                                                item.roomId,
+                                            ),
                                         });
                                     } else {
                                         navigate(

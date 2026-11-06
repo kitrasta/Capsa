@@ -155,3 +155,14 @@
 @keyframes access-spin {
     to { transform: rotate(360deg); }
 }
+
+@media (max-width: 768px) {
+    .header {
+        padding: calc(8px + env(safe-area-inset-top, 0px)) 8px 8px;
+    }
+
+    .backButton {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}
