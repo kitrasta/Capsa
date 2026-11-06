@@ -9,6 +9,7 @@ import  AuthGuard  from './AuthGuard.tsx'
 // и настроек. Suspense-обёртка — в MainLayout вокруг <Outlet/>.
 // LoginPage остаётся статическим — это стартовый экран.
 const ChatsPage = lazy(() => import('../../pages/ChatsPage.tsx'))
+const SpaceWorkspacePage = lazy(() => import('../../pages/SpaceWorkspacePage.tsx'))
 const ContactsPage = lazy(() => import('../../pages/ContactsPage.tsx'))
 const CallsPage = lazy(() => import('../../pages/CallsPage.tsx'))
 const GeneralSettingsPage = lazy(() => import('../../pages/GeneralSettingsPage.tsx'))
@@ -27,6 +28,8 @@ const AppRouter = () => {
                 <Route element={<MainLayout />}>
                     <Route path="/chats" element={<ChatsPage />} />
                     <Route path="/chats/:roomId" element={<ChatsPage />} />
+                    <Route path="/spaces/:spaceId" element={<SpaceWorkspacePage />} />
+                    <Route path="/spaces/:spaceId/chats/:roomId" element={<SpaceWorkspacePage />} />
                     <Route path="/contacts" element={<ContactsPage />} />
                     <Route path="/calls" element={<CallsPage />} />
                     <Route path='/settings' element={<Navigate to="/settings/general" replace />} />

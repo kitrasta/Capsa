@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { MatrixClient } from 'matrix-js-sdk';
+import type { ReactNode } from 'react';
 
 vi.mock('../../shared/lib/matrix', () => {
     // стабильный snapshot: useSyncExternalStore сравнивает ссылку,
@@ -31,6 +32,14 @@ vi.mock('../../shared/lib/matrix', () => {
 
 vi.mock('../../widgets/Sidebar/Sidebar', () => ({
     default: () => <div>Sidebar</div>,
+}));
+
+vi.mock('../../widgets/SpaceWorkspace/SpaceWorkspaceContext', () => ({
+    SpaceWorkspaceProvider: ({ children }: { children: ReactNode }) => children,
+}));
+
+vi.mock('../../widgets/SpaceWorkspace/SpaceSidebar', () => ({
+    default: () => <div>Space sidebar</div>,
 }));
 
 vi.mock('../../widgets/Settings/SettingsMenu', () => ({
@@ -71,6 +80,26 @@ const renderDirectChatLink = () =>
             </Routes>
         </MemoryRouter>,
     );
+
+const renderSpaceLink = (roomId?: string) => {
+    const spacePath = '/spaces/%21space%3Aexample.org';
+    const initialEntry = roomId
+        ? `${spacePath}/chats/${encodeURIComponent(roomId)}`
+        : spacePath;
+    return render(
+        <MemoryRouter initialEntries={[initialEntry]}>
+            <Routes>
+                <Route element={<MainLayout />}>
+                    <Route path="/spaces/:spaceId" element={<div>Space overview</div>} />
+                    <Route
+                        path="/spaces/:spaceId/chats/:roomId"
+                        element={<div>Protected Space chat</div>}
+                    />
+                </Route>
+            </Routes>
+        </MemoryRouter>,
+    );
+};
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -137,5 +166,48 @@ describe('MainLayout: запуск по прямой ссылке', () => {
         ).toBe(true);
         expect(screen.getByText('Settings menu')).toBeTruthy();
         expect(screen.getByText('General')).toBeTruthy();
+    });
+
+    it('использует SpaceSidebar и мобильный overview-класс на маршруте Space', () => {
+        vi.mocked(matrixLifecycle.getState).mockReturnValue({
+            state: 'client ready',
+            error: null,
+        });
+
+        const { container } = renderSpaceLink();
+        const layout = container.firstChild as Element;
+
+        expect(screen.getByText('Space sidebar')).toBeTruthy();
+        expect(screen.queryByText('Sidebar')).toBeNull();
+        expect(screen.getByText('Space overview')).toBeTruthy();
+        expect(layout.classList.contains(styles.spaceOverview)).toBe(true);
+        expect(layout.classList.contains(styles.roomOpen)).toBe(false);
+    });
+
+    it('применяет roomOpen к комнате Space и сохраняет SpaceSidebar', () => {
+        vi.mocked(matrixLifecycle.getState).mockReturnValue({
+            state: 'client ready',
+            error: null,
+        });
+
+        const { container } = renderSpaceLink('!room:example.org');
+        const layout = container.firstChild as Element;
+
+        expect(screen.getByText('Space sidebar')).toBeTruthy();
+        expect(screen.getByText('Protected Space chat')).toBeTruthy();
+        expect(layout.classList.contains(styles.roomOpen)).toBe(true);
+        expect(layout.classList.contains(styles.spaceOverview)).toBe(false);
+    });
+
+    it('не монтирует Space sidebar и контент до готовности Matrix', () => {
+        vi.mocked(matrixLifecycle.getState).mockReturnValue({
+            state: 'client starting',
+            error: null,
+        });
+
+        renderSpaceLink('!room:example.org');
+
+        expect(screen.queryByText('Space sidebar')).toBeNull();
+        expect(screen.queryByText('Protected Space chat')).toBeNull();
     });
 });

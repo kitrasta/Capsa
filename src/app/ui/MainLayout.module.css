@@ -21,6 +21,10 @@
     flex-direction: column;
 }
 
+.spaceOverview .content {
+    display: flex;
+}
+
 /* ошибка старта Matrix вместо бесконечной «Загрузка...» */
 .startupError {
     margin: 12px;
@@ -59,6 +63,14 @@
     }
 
     .roomOpen .content {
+        display: flex;
+    }
+
+    .spaceOverview .sidebar {
+        display: none;
+    }
+
+    .spaceOverview .content {
         display: flex;
     }
 

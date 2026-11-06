@@ -1,6 +1,8 @@
 import styles from './MainLayout.module.css';
-import { Outlet, useLocation } from 'react-router-dom';
+import { matchPath, Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../../widgets/Sidebar/Sidebar';
+import SpaceSidebar from '../../widgets/SpaceWorkspace/SpaceSidebar';
+import { SpaceWorkspaceProvider } from '../../widgets/SpaceWorkspace/SpaceWorkspaceContext';
 import SettingsMenu from '../../widgets/Settings/SettingsMenu';
 import EncryptionRecoveryGate from '../../widgets/EncryptionRecovery/EncryptionRecovery';
 import ConnectionStatus from './ConnectionStatus';
@@ -21,11 +23,18 @@ const MainLayout = () => {
         matrixLifecycle.getState,
     );
     const { pathname } = useLocation();
+    const spaceMatch = matchPath('/spaces/:spaceId/*', pathname);
+    const spaceRoomMatch = matchPath('/spaces/:spaceId/chats/:roomId', pathname);
+    const spaceId = spaceMatch?.params.spaceId
+        ? decodeURIComponent(spaceMatch.params.spaceId)
+        : undefined;
     const isSettings = pathname.startsWith('/settings');
-    const isRoomOpen = pathname.startsWith('/chats/') && pathname !== '/chats/';
+    const isRoomOpen = Boolean(spaceRoomMatch)
+        || (pathname.startsWith('/chats/') && pathname !== '/chats/');
     const layoutClassName = [
         styles.wrapper,
         isRoomOpen ? styles.roomOpen : '',
+        spaceId && !spaceRoomMatch ? styles.spaceOverview : '',
         isSettings ? styles.settings : '',
     ].filter(Boolean).join(' ');
 
@@ -42,10 +51,14 @@ const MainLayout = () => {
     }, [snapshot.state]);
 
     if (snapshot.state === 'client ready') {
-        return (
+        const layout = (
             <div className={layoutClassName}>
                 <aside className={styles.sidebar}>
-                    {isSettings ? <SettingsMenu /> : <Sidebar />}
+                    {spaceId
+                        ? <SpaceSidebar />
+                        : isSettings
+                          ? <SettingsMenu />
+                          : <Sidebar />}
                 </aside>
                 <main className={styles.content}>
                     <ConnectionStatus />
@@ -62,7 +75,15 @@ const MainLayout = () => {
                 </main>
                 <EncryptionRecoveryGate />
             </div>
-        )
+        );
+
+        return spaceId
+            ? (
+                <SpaceWorkspaceProvider key={spaceId} spaceId={spaceId}>
+                    {layout}
+                </SpaceWorkspaceProvider>
+            )
+            : layout;
     }
 
     // client starting | idle → лоадер; любое другое состояние = ошибка с причиной
