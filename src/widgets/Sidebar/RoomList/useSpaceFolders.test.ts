@@ -1,19 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { ClientEvent, EventType, RoomEvent, RoomStateEvent } from 'matrix-js-sdk';
+import { act, renderHook } from '@testing-library/react';
+import { EventType, RoomEvent, RoomStateEvent } from 'matrix-js-sdk';
 import type { MatrixClient, MatrixEvent, Room, RoomMember } from 'matrix-js-sdk';
-import type { SpaceChildSummary } from '../../../shared/lib/matrix';
 
 const mocks = vi.hoisted(() => ({
     getClient: vi.fn(),
-    getSpaceChildSummaries: vi.fn(),
 }));
 
 vi.mock('../../../shared/lib/matrix', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../../../shared/lib/matrix')>()),
     getClient: mocks.getClient,
-    getSpaceChildSummaries: mocks.getSpaceChildSummaries,
 }));
 
 import { useSpaceFolders } from './useSpaceFolders';
@@ -60,16 +57,6 @@ const makeRoom = (
     } as unknown as Room;
 };
 
-const summary = (name: string, roomType: string | null = null): SpaceChildSummary => ({
-    name,
-    avatarUrl: null,
-    roomType,
-    joinRule: null,
-    worldReadable: false,
-    guestCanJoin: false,
-    memberCount: 0,
-});
-
 const setup = (
     rooms: Room[],
     directContent: unknown = {},
@@ -86,7 +73,6 @@ const setup = (
         off: vi.fn(),
     } as unknown as MatrixClient;
     mocks.getClient.mockReturnValue(client);
-    mocks.getSpaceChildSummaries.mockResolvedValue(new Map());
     return { client, emit: (event: string) => listeners.get(event)?.() };
 };
 
@@ -123,11 +109,11 @@ describe('useSpaceFolders', () => {
         const { result } = renderHook(() => useSpaceFolders());
 
         expect(result.current.filter).toBe('all');
-        expect(result.current.path).toEqual([]);
         expect(result.current.spaces.map((space) => space.roomId)).toEqual([
             secondRoot.roomId,
             root.roomId,
         ]);
+        expect(result.current.spaces.map((space) => space.childCount)).toEqual([1, 1]);
         expect(result.current.rooms.map((room) => room.roomId)).toEqual([
             outside.roomId,
             unjoinedSpaceRoom.roomId,
@@ -140,61 +126,23 @@ describe('useSpaceFolders', () => {
         ]);
     });
 
-    it('открывает один уровень, сохраняет фактический путь и возвращается по breadcrumb', async () => {
-        const joined = makeRoom('!joined:example.org', 'Общий', { timestamp: 20 });
-        const outside = makeRoom('!outside:example.org', 'Вне папки', { timestamp: 30 });
-        const nested = makeRoom('!nested:example.org', 'Разработка', {
+    it('пересчитывает childCount из живых direct edges после RoomStateEvent.Events', () => {
+        const joined = makeRoom('!joined:example.org', 'Общий');
+        const root = makeRoom('!root:example.org', 'Компания', {
             space: true,
             children: [joined.roomId],
         });
-        const root = makeRoom('!root:example.org', 'Компания', {
-            space: true,
-            children: [nested.roomId],
-        });
-        setup([nested, joined, outside, root]);
+        const { emit } = setup([root, joined]);
         const { result } = renderHook(() => useSpaceFolders());
 
-        act(() => result.current.openSpace(root.roomId));
+        expect(result.current.spaces[0].childCount).toBe(1);
 
-        expect(result.current.spaces.map((space) => space.roomId)).toEqual([nested.roomId]);
-        expect(result.current.rooms).toEqual([]);
-        expect(result.current.rooms.some((room) => room.roomId === outside.roomId)).toBe(false);
-        await waitFor(() => expect(mocks.getSpaceChildSummaries).toHaveBeenCalledWith(root.roomId));
-
-        act(() => result.current.openSpace(nested.roomId));
-        expect(result.current.path.map((room) => room.roomId)).toEqual([root.roomId, nested.roomId]);
-        expect(result.current.rooms.map((room) => room.roomId)).toEqual([joined.roomId]);
-
-        act(() => result.current.openSpace(root.roomId));
-        expect(result.current.path).toHaveLength(2);
-
-        act(() => result.current.openBreadcrumb(0));
-        expect(result.current.path.map((room) => room.roomId)).toEqual([root.roomId]);
-
-        act(() => result.current.showAll());
-        expect(result.current.path).toEqual([]);
-    });
-
-    it('сбрасывает путь к корню после выхода из открытого Space', () => {
-        let membership: 'join' | 'leave' = 'join';
-        const child = makeRoom('!child:example.org', 'Дочерняя');
-        const root = makeRoom('!root:example.org', 'Компания', {
-            space: true,
-            children: [child.roomId],
+        Object.defineProperty(root.currentState, 'getStateEvents', {
+            value: () => [joined.roomId, '!added:example.org'].map(childEvent),
         });
-        root.getMyMembership = () => membership;
-        const { emit } = setup([root, child]);
-        const { result } = renderHook(() => useSpaceFolders());
-        act(() => result.current.openSpace(root.roomId));
-        expect(result.current.path.map((room) => room.roomId)).toEqual([root.roomId]);
+        act(() => emit(RoomStateEvent.Events));
 
-        membership = 'leave';
-        act(() => emit(RoomEvent.MyMembership));
-
-        expect(result.current.path).toEqual([]);
-        expect(result.current.currentSpace).toBeNull();
-        expect(result.current.spaces).toEqual([]);
-        expect(result.current.rooms.map((room) => room.roomId)).toEqual([child.roomId]);
+        expect(result.current.spaces[0].childCount).toBe(2);
     });
 
     it('агрегирует unread и активность рекурсивно, переживает циклы и обновления вне экрана', () => {
@@ -226,10 +174,6 @@ describe('useSpaceFolders', () => {
         expect(result.current.filter).toBe('unread');
         expect(result.current.spaces.map((space) => space.roomId)).toEqual([root.roomId]);
         expect(result.current.rooms).toEqual([]);
-
-        act(() => result.current.openSpace(root.roomId));
-        expect(result.current.spaces.map((space) => space.roomId)).toEqual([nested.roomId]);
-        expect(result.current.spaces[0].unread).toBe(3);
     });
 
     it('в фильтре Новые оставляет только joined unread rooms и контейнеры с unread descendants', () => {
@@ -287,7 +231,7 @@ describe('useSpaceFolders', () => {
         ]);
     });
 
-    it('показывает в Личные DM внутри и вне открытого Space', () => {
+    it('показывает в Личные DM внутри и вне Space независимо от иерархии', () => {
         const inside = makeRoom('!inside:example.org', 'Внутри Space', { timestamp: 20 });
         const outside = makeRoom('!outside:example.org', 'Вне Space', { timestamp: 10 });
         const regular = makeRoom('!regular:example.org', 'Обычная вне Space');
@@ -301,7 +245,6 @@ describe('useSpaceFolders', () => {
         );
         const { result } = renderHook(() => useSpaceFolders());
 
-        act(() => result.current.openSpace(space.roomId));
         act(() => result.current.setFilter('direct'));
 
         expect(result.current.spaces).toEqual([]);
@@ -320,92 +263,5 @@ describe('useSpaceFolders', () => {
 
         expect(result.current.spaces).toEqual([]);
         expect(result.current.rooms).toEqual([]);
-    });
-
-    it('дозагружает summary неизвестной комнаты, сохраняя её видимой во время загрузки', async () => {
-        const root = makeRoom('!root:example.org', 'Компания', {
-            space: true,
-            children: ['!unknown:example.org'],
-        });
-        setup([root]);
-        mocks.getSpaceChildSummaries.mockResolvedValue(new Map([
-            ['!unknown:example.org', summary('Публичная')],
-        ]));
-        const { result } = renderHook(() => useSpaceFolders());
-
-        act(() => result.current.openSpace(root.roomId));
-        expect(result.current.rooms[0]).toMatchObject({
-            roomId: '!unknown:example.org',
-            room: null,
-            name: '!unknown',
-        });
-
-        await waitFor(() => expect(result.current.rooms[0].name).toBe('Публичная'));
-        expect(result.current.rooms[0].noAccess).toBe(false);
-    });
-
-    it('сохраняет синхронизированного ребёнка при ошибке summary', async () => {
-        const root = makeRoom('!root:example.org', 'Компания', {
-            space: true,
-            children: ['!unknown:example.org'],
-        });
-        setup([root]);
-        mocks.getSpaceChildSummaries.mockRejectedValue(new Error('forbidden'));
-        const { result } = renderHook(() => useSpaceFolders());
-
-        act(() => result.current.openSpace(root.roomId));
-
-        await waitFor(() => expect(result.current.enrichmentError).toBe(true));
-        expect(result.current.rooms).toHaveLength(1);
-        expect(result.current.rooms[0].noAccess).toBe(true);
-    });
-
-    it('повторно обогащает Space после добавления неизвестного ребёнка', async () => {
-        let childIds = ['!known:example.org'];
-        const root = makeRoom('!root:example.org', 'Компания', { space: true });
-        Object.defineProperty(root.currentState, 'getStateEvents', {
-            value: () => childIds.map(childEvent),
-        });
-        const { emit } = setup([root]);
-        mocks.getSpaceChildSummaries
-            .mockResolvedValueOnce(new Map([['!known:example.org', summary('Известная')]]))
-            .mockResolvedValueOnce(new Map([
-                ['!known:example.org', summary('Известная')],
-                ['!added:example.org', summary('Добавленная')],
-            ]));
-        const { result } = renderHook(() => useSpaceFolders());
-        act(() => result.current.openSpace(root.roomId));
-        await waitFor(() => expect(result.current.rooms[0].name).toBe('Известная'));
-        expect(mocks.getSpaceChildSummaries).toHaveBeenCalledTimes(1);
-
-        childIds = [...childIds, '!added:example.org'];
-        act(() => emit(RoomStateEvent.Events));
-
-        await waitFor(() => expect(mocks.getSpaceChildSummaries).toHaveBeenCalledTimes(2));
-        await waitFor(() => expect(
-            result.current.rooms.find((room) => room.roomId === '!added:example.org'),
-        ).toMatchObject({
-            name: 'Добавленная',
-            noAccess: false,
-        }));
-    });
-
-    it('перечитывает состав после RoomStateEvent.Events', () => {
-        const joined = makeRoom('!joined:example.org', 'Общий');
-        const root = makeRoom('!root:example.org', 'Компания', {
-            space: true,
-            children: [joined.roomId],
-        });
-        const { emit } = setup([root, joined]);
-        const { result } = renderHook(() => useSpaceFolders());
-        act(() => result.current.openSpace(root.roomId));
-        expect(result.current.rooms).toHaveLength(1);
-
-        Object.defineProperty(root.currentState, 'getStateEvents', { value: () => [] });
-        act(() => emit(RoomStateEvent.Events));
-
-        expect(result.current.rooms).toEqual([]);
-        expect(result.current.spaces).toEqual([]);
-        expect(ClientEvent.Room).toBeTruthy();
     });
 });

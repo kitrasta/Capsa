@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ClientEvent,
     EventType,
@@ -6,7 +6,6 @@ import {
     NotificationCountType,
     RoomEvent,
     RoomStateEvent,
-    RoomType,
     SyncState,
 } from 'matrix-js-sdk';
 import type { MatrixClient, Room } from 'matrix-js-sdk';
@@ -14,8 +13,6 @@ import {
     getClient,
     getDirectSpaceChildIds,
     getJoinedSpaceRoots,
-    getSpaceChildSummaries,
-    type SpaceChildSummary,
 } from '../../../shared/lib/matrix';
 
 export type SpaceFolderFilter = 'all' | 'unread' | 'direct';
@@ -28,6 +25,7 @@ export interface SpaceFolderSpaceView {
     avatarUrl: string | null;
     unread: number;
     lastActivityTs: number;
+    childCount: number;
     canOpen: boolean;
     noAccess: boolean;
 }
@@ -116,16 +114,7 @@ const isDirectRoom = (room: Room, client: MatrixClient, directRoomIds: ReadonlyS
 export const useSpaceFolders = () => {
     const client = getClient();
     const [filter, setFilter] = useState<SpaceFolderFilter>('all');
-    const [pathIds, setPathIds] = useState<string[]>([]);
     const [, setVersion] = useState(0);
-    const [summaryCache, setSummaryCache] = useState<
-        Record<string, Map<string, SpaceChildSummary>>
-    >({});
-    const [requestResult, setRequestResult] = useState<{
-        spaceId: string;
-        error: boolean;
-    } | null>(null);
-    const requestVersion = useRef(0);
 
     useEffect(() => {
         const refresh = () => setVersion((value) => value + 1);
@@ -151,38 +140,6 @@ export const useSpaceFolders = () => {
     }, [client]);
 
     const roots = getJoinedSpaceRoots(client);
-    const resolvedPath = pathIds
-        .map((roomId) => client.getRoom(roomId))
-        .filter((room): room is Room => room !== null && room.isSpaceRoom() && isJoined(room));
-    // Исчезнувший или покинутый Space без дополнительного effect заменяется корнем.
-    const path = resolvedPath.length === pathIds.length ? resolvedPath : [];
-    const currentSpace = path[path.length - 1] ?? null;
-    const currentId = currentSpace?.roomId ?? null;
-    const directChildIds = currentSpace ? getDirectSpaceChildIds(currentSpace) : [];
-    const directChildSignature = [...directChildIds].sort().join('\0');
-
-    useEffect(() => {
-        requestVersion.current += 1;
-        if (!currentId) return;
-
-        const request = requestVersion.current;
-        getSpaceChildSummaries(currentId)
-            .then((summaries) => {
-                if (request !== requestVersion.current) return;
-                setSummaryCache((cache) => ({ ...cache, [currentId]: summaries }));
-                setRequestResult({ spaceId: currentId, error: false });
-            })
-            .catch(() => {
-                if (request === requestVersion.current) {
-                    setRequestResult({ spaceId: currentId, error: true });
-                }
-            });
-    }, [currentId, directChildSignature]);
-
-    const summaries = currentId ? summaryCache[currentId] : undefined;
-    const requestSettled = requestResult?.spaceId === currentId;
-    const enrichmentError = requestSettled && requestResult.error;
-    const isEnriching = currentId !== null && !summaries && !requestSettled;
     const directRoomIds = filter === 'direct' ? getDirectRoomIds(client) : new Set<string>();
     const joinedSpaces = client.getRooms().filter(
         (room) => room.isSpaceRoom() && isJoined(room),
@@ -195,39 +152,31 @@ export const useSpaceFolders = () => {
         ? client.getRooms()
             .filter((room) => isJoined(room) && !room.isSpaceRoom())
             .map((room) => room.roomId)
-        : currentSpace
-          ? directChildIds
-          : [
+        : [
             ...roots.map((room) => room.roomId),
             ...client.getRooms()
-                .filter((room) => {
-                    if (!isJoined(room) || room.isSpaceRoom()) return false;
-                    // Ветка 'direct' выбрала sourceIds выше — здесь её проверка мертва.
-                    return !groupedRoomIds.has(room.roomId);
-                })
+                .filter((room) => isJoined(room) && !room.isSpaceRoom() && !groupedRoomIds.has(room.roomId))
                 .map((room) => room.roomId),
         ];
 
     for (const roomId of new Set(sourceIds)) {
         const room = client.getRoom(roomId);
-        const summary = summaries?.get(roomId) ?? null;
-        const isSpace = room?.isSpaceRoom() ?? summary?.roomType === RoomType.Space;
-        const noAccess = !room && !summary && !isEnriching;
         const common = {
             roomId,
             room,
-            name: room?.name || summary?.name || fallbackName(roomId),
-            avatarUrl: room?.getMxcAvatarUrl() ?? summary?.avatarUrl ?? null,
-            noAccess,
+            name: room?.name || fallbackName(roomId),
+            avatarUrl: room?.getMxcAvatarUrl() ?? null,
+            noAccess: !room,
         };
-        if (isSpace) {
-            const aggregate = room && isJoined(room)
+        if (room?.isSpaceRoom()) {
+            const aggregate = isJoined(room)
                 ? getSpaceAggregate(room, client)
                 : { unread: 0, lastActivityTs: 0 };
             allSpaces.push({
                 ...common,
                 ...aggregate,
                 kind: 'space',
+                childCount: getDirectSpaceChildIds(room).length,
                 canOpen: isJoined(room),
             });
         } else {
@@ -257,22 +206,5 @@ export const useSpaceFolders = () => {
         ? rooms
         : [...spaces, ...rooms].sort(compareItems);
 
-    return {
-        filter,
-        path,
-        currentSpace,
-        items,
-        spaces,
-        rooms,
-        isEnriching,
-        enrichmentError,
-        setFilter,
-        openSpace: (roomId: string) => {
-            const room = client.getRoom(roomId);
-            if (!room?.isSpaceRoom() || !isJoined(room)) return;
-            setPathIds((current) => current.includes(roomId) ? current : [...current, roomId]);
-        },
-        openBreadcrumb: (index: number) => setPathIds((current) => current.slice(0, index + 1)),
-        showAll: () => setPathIds([]),
-    };
+    return { filter, items, spaces, rooms, setFilter };
 };

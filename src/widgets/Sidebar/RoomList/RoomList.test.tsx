@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { RoomEvent } from 'matrix-js-sdk';
 import type { MatrixClient, MatrixEvent, Room } from 'matrix-js-sdk';
 
@@ -44,6 +44,17 @@ const makeRoom = (
         off: vi.fn(),
     }) as unknown as Room;
 
+const childEvent = (roomId: string): MatrixEvent => ({
+    getStateKey: () => roomId,
+    getContent: () => ({ via: ['example.org'] }),
+}) as unknown as MatrixEvent;
+
+const setChildren = (space: Room, roomIds: string[]) => {
+    Object.defineProperty(space.currentState, 'getStateEvents', {
+        value: () => roomIds.map(childEvent),
+    });
+};
+
 const setupClient = (rooms: Room[]) => {
     const client = {
         getRooms: () => rooms,
@@ -57,6 +68,11 @@ const setupClient = (rooms: Room[]) => {
     mocks.getSpaceChildSummaries.mockResolvedValue(new Map());
 };
 
+const LocationProbe = () => {
+    const { pathname } = useLocation();
+    return <output data-testid="location">{pathname}</output>;
+};
+
 afterEach(() => {
     cleanup();
     vi.clearAllMocks();
@@ -64,16 +80,11 @@ afterEach(() => {
 });
 
 describe('RoomList', () => {
-    it('показывает постоянные фильтры и Space как строку в общем списке, а не вкладку', () => {
+    it('показывает постоянные фильтры и Space как папку с числом комнат, unread и chevron', () => {
         const group = makeRoom('!group:example.org', 'Группа', 100);
+        group.getRoomUnreadNotificationCount = () => 2;
         const space = makeRoom('!space:example.org', 'Space', 0, true);
-        const edge = (roomId: string): MatrixEvent => ({
-            getStateKey: () => roomId,
-            getContent: () => ({ via: ['example.org'] }),
-        }) as unknown as MatrixEvent;
-        Object.defineProperty(space.currentState, 'getStateEvents', {
-            value: () => [edge(group.roomId)],
-        });
+        setChildren(space, [group.roomId]);
         const direct = makeRoom('!direct:example.org', 'Личный чат', 300);
         const channel = makeRoom('!channel:example.org', 'Канал', 200);
         setupClient([group, space, direct, channel]);
@@ -91,7 +102,10 @@ describe('RoomList', () => {
             'Личные',
         ]);
         expect(within(filters).queryByRole('button', { name: 'Space' })).toBeNull();
-        expect(screen.getByRole('button', { name: 'Space' })).toBeTruthy();
+        const folder = screen.getByRole('button', { name: 'Space 2' });
+        expect(within(folder).getByText('1 комната')).toBeTruthy();
+        expect(within(folder).getByText('2')).toBeTruthy();
+        expect(folder.querySelector('svg.lucide-chevron-right')).not.toBeNull();
         expect(screen.getAllByTestId('joined-room').map((button) => button.textContent)).toEqual([
             'Личный чат',
             'Канал',
@@ -112,14 +126,8 @@ describe('RoomList', () => {
                 hiddenHandler = undefined;
             }
         }) as never;
-        const edge = (roomId: string): MatrixEvent => ({
-            getStateKey: () => roomId,
-            getContent: () => ({ via: ['example.org'] }),
-        }) as unknown as MatrixEvent;
         const root = makeRoom('!root:example.org', 'Сообщество', 0, true);
-        Object.defineProperty(root.currentState, 'getStateEvents', {
-            value: () => [edge(hidden.roomId)],
-        });
+        setChildren(root, [hidden.roomId]);
         setupClient([hidden, root]);
 
         render(<MemoryRouter initialEntries={['/chats']}><RoomList /></MemoryRouter>);
@@ -132,26 +140,41 @@ describe('RoomList', () => {
         expect(screen.getByRole('button', { name: 'Сообщество 2' })).toBeTruthy();
     });
 
-    it('при выборе Space заменяет список его непосредственными детьми и показывает путь', () => {
+    it('склоняет подпись числа комнат с учётом исключений', () => {
+        const counts = [0, 2, 5, 11, 21, 22];
+        const spaces = counts.map((count, index) => {
+            const space = makeRoom(`!space-${index}:example.org`, `Space ${count}`, 0, true);
+            setChildren(space, Array.from({ length: count }, (_, child) => `!child-${index}-${child}:example.org`));
+            return space;
+        });
+        setupClient(spaces);
+
+        render(<MemoryRouter initialEntries={['/chats']}><RoomList /></MemoryRouter>);
+
+        for (const label of ['0 комнат', '2 комнаты', '5 комнат', '11 комнат', '21 комната', '22 комнаты']) {
+            expect(screen.getByText(label)).toBeTruthy();
+        }
+    });
+
+    it('открывает Space по URL, не заменяя корневой список его детьми', () => {
         const child = makeRoom('!child:example.org', 'Дочерняя', 20);
         const outside = makeRoom('!outside:example.org', 'Снаружи', 30);
         const root = makeRoom('!root:example.org', 'Компания', 0, true);
-        const edge = (roomId: string): MatrixEvent => ({
-            getStateKey: () => roomId,
-            getContent: () => ({ via: ['example.org'] }),
-        }) as unknown as MatrixEvent;
-        Object.defineProperty(root.currentState, 'getStateEvents', {
-            value: () => [edge(child.roomId)],
-        });
+        setChildren(root, [child.roomId]);
         setupClient([root, child, outside]);
 
-        render(<MemoryRouter initialEntries={['/chats']}><RoomList /></MemoryRouter>);
+        render(
+            <MemoryRouter initialEntries={['/chats']}>
+                <RoomList />
+                <LocationProbe />
+            </MemoryRouter>,
+        );
         fireEvent.click(screen.getByRole('button', { name: 'Компания' }));
 
-        expect(screen.getAllByTestId('joined-room').map((button) => button.textContent)).toEqual([
-            'Дочерняя',
-        ]);
-        expect(screen.queryByText('Снаружи')).toBeNull();
-        expect(screen.getByRole('navigation', { name: 'Путь' }).textContent).toBe('Все/Компания');
+        expect(screen.getByTestId('location').textContent).toBe('/spaces/!root%3Aexample.org');
+        expect(screen.getByRole('button', { name: 'Компания' })).toBeTruthy();
+        expect(screen.getByText('Снаружи')).toBeTruthy();
+        expect(screen.queryByText('Дочерняя')).toBeNull();
+        expect(screen.queryByRole('navigation', { name: 'Путь' })).toBeNull();
     });
 });

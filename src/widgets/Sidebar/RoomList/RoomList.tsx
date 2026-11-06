@@ -61,16 +61,16 @@ const RoomList = () => {
         },
         [navigate],
     );
+    const handleSpaceClick = useCallback(
+        (roomId: string) => {
+            navigate(`/spaces/${encodeURIComponent(roomId)}`);
+        },
+        [navigate],
+    );
 
     return (
         <div className={styles.rooms}>
-            <FolderTabs
-                filter={folders.filter}
-                path={folders.path}
-                onFilterChange={folders.setFilter}
-                onOpenBreadcrumb={folders.openBreadcrumb}
-                onShowAll={folders.showAll}
-            />
+            <FolderTabs filter={folders.filter} onFilterChange={folders.setFilter} />
 
             {folders.items.map((view) => {
                 if (view.kind === 'space') {
@@ -78,7 +78,7 @@ const RoomList = () => {
                         <SpaceRow
                             key={view.roomId}
                             space={view}
-                            onOpen={folders.openSpace}
+                            onOpen={handleSpaceClick}
                         />
                     );
                 }
