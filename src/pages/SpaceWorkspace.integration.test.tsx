@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { EventType, NotificationCountType } from 'matrix-js-sdk';
+import { ClientEvent, EventType, NotificationCountType } from 'matrix-js-sdk';
 import type { MatrixClient, MatrixEvent, Room } from 'matrix-js-sdk';
 import type { RoomAccess, SpaceChildSummary } from '../shared/lib/matrix';
 
@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
     getSession: vi.fn(),
     getSpaceChildSummaries: vi.fn(),
     getRoomAccess: vi.fn(),
+    joinRoom: vi.fn(),
     otkState: { conflict: false },
     matrixLifecycle: {
         subscribe: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('../shared/lib/matrix', async (importOriginal) => ({
     getSession: mocks.getSession,
     getSpaceChildSummaries: mocks.getSpaceChildSummaries,
     getRoomAccess: mocks.getRoomAccess,
+    joinRoom: mocks.joinRoom,
     cleanupLegacyCryptoStore: vi.fn(() => Promise.resolve()),
     matrixLifecycle: mocks.matrixLifecycle,
     otkConflict: {
@@ -47,7 +49,7 @@ vi.mock('../widgets/EncryptionRecovery/EncryptionRecovery', () => ({
 }));
 
 vi.mock('../widgets/Sidebar/Sidebar', () => ({
-    default: () => null,
+    default: () => <RoomList />,
 }));
 
 vi.mock('../widgets/Chat/ChatView', () => ({
@@ -55,6 +57,7 @@ vi.mock('../widgets/Chat/ChatView', () => ({
 }));
 
 import AppRouter from '../app/router/app-router';
+import RoomList from '../widgets/Sidebar/RoomList/RoomList';
 
 const childEvent = (childId: string): MatrixEvent => ({
     getStateKey: () => childId,
@@ -86,6 +89,8 @@ const makeRoom = (roomId: string, name: string, options: RoomOptions = {}): Room
     ),
     getJoinedMemberCount: () => options.memberCount ?? 0,
     getMxcAvatarUrl: () => null,
+    on: vi.fn(),
+    off: vi.fn(),
     currentState: {
         getStateEvents: (eventType: string) => {
             if (eventType === EventType.SpaceChild) {
@@ -133,8 +138,14 @@ const roomPath = (roomId = JOINED_ID, spaceId = SPACE_ID) => (
 );
 
 describe('Space workspace routes', () => {
+    const listeners = new Map<string, Set<() => void>>();
+    const emitClientEvent = (event: string) => {
+        listeners.get(event)?.forEach((listener) => listener());
+    };
+
     beforeEach(() => {
         vi.clearAllMocks();
+        listeners.clear();
         const rooms = [
             makeRoom(SPACE_ID, 'Компания', {
                 space: true,
@@ -152,8 +163,13 @@ describe('Space workspace routes', () => {
             getAccountData: () => null,
             getSyncState: () => null,
             stopPeeking: vi.fn(),
-            on: vi.fn(),
-            off: vi.fn(),
+            on: vi.fn((event: string, listener: () => void) => {
+                if (!listeners.has(event)) listeners.set(event, new Set());
+                listeners.get(event)!.add(listener);
+            }),
+            off: vi.fn((event: string, listener: () => void) => {
+                listeners.get(event)?.delete(listener);
+            }),
         } as unknown as MatrixClient;
         mocks.getClient.mockReturnValue(client);
         mocks.getSession.mockReturnValue({
@@ -174,9 +190,51 @@ describe('Space workspace routes', () => {
         mocks.getRoomAccess.mockImplementation((roomId: string) => Promise.resolve(
             access(roomId === JOINED_ID ? 'joined' : 'public'),
         ));
+        mocks.joinRoom.mockResolvedValue(makeRoom(PUBLIC_ID, 'Публичная'));
     });
 
     afterEach(cleanup);
+
+    it('completes the root-to-Space journey with public join and joined-room switching', async () => {
+        renderRoute('/chats');
+
+        const filterGroup = screen.getByRole('group', { name: 'Фильтры чатов' });
+        expect(within(filterGroup).getAllByRole('button').map((button) => button.textContent)).toEqual([
+            'Все',
+            'Новые',
+            'Личные',
+        ]);
+        expect(within(filterGroup).queryByRole('button', { name: 'Компания' })).toBeNull();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Компания 3' }));
+
+        const overview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        expect(screen.getByTestId('location').textContent).toBe(spacePath());
+        fireEvent.click(within(overview).getByRole('button', { name: /Публичная/ }));
+
+        expect(await screen.findByRole('button', { name: 'Вступить в комнату' })).toBeTruthy();
+        expect(screen.getByTestId('location').textContent).toBe(roomPath(PUBLIC_ID));
+        expect(screen.queryByRole('textbox', { name: 'Сообщение' })).toBeNull();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Вступить в комнату' }));
+
+        await waitFor(() => expect(mocks.joinRoom).toHaveBeenCalledWith(PUBLIC_ID));
+        expect(screen.queryByRole('textbox', { name: 'Сообщение' })).toBeNull();
+        mocks.getRoomAccess.mockResolvedValue(access('joined'));
+        await act(async () => emitClientEvent(ClientEvent.Room));
+        expect(await screen.findByRole('textbox', { name: 'Сообщение' })).toBeTruthy();
+        const navigation = screen.getByRole('navigation', { name: 'Навигация по пространству' });
+        fireEvent.click(within(navigation).getByRole('button', { name: /Общий/ }));
+
+        expect(await screen.findByRole('textbox', { name: 'Сообщение' })).toBeTruthy();
+        expect(screen.getByTestId('location').textContent).toBe(roomPath());
+
+        fireEvent.click(screen.getByRole('button', { name: 'Обзор пространства' }));
+
+        expect(await screen.findByText('Рабочее пространство команды')).toBeTruthy();
+        expect(screen.getByTestId('location').textContent).toBe(spacePath());
+        expect(screen.queryByRole('textbox', { name: 'Сообщение' })).toBeNull();
+    });
 
     it('shows only joined children in the sidebar and every direct child in the overview', async () => {
         renderRoute(spacePath());
