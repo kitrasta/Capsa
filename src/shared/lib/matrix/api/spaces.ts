@@ -28,10 +28,18 @@ export const addRoomToSpace = async (
     await client.sendStateEvent(spaceId, EventType.SpaceChild, { via: [serverName] }, roomId);
 };
 
-export interface ChildSummary {
+export interface SpaceChildSummary {
     name: string | null;
     avatarUrl: string | null;
+    roomType: string | null;
+    joinRule: string | null;
+    worldReadable: boolean;
+    guestCanJoin: boolean;
+    memberCount: number;
 }
+
+// Старое имя остаётся для совместимости с существующими импортами.
+export type ChildSummary = SpaceChildSummary;
 
 // чистая функция: ответ hierarchy → roomId → данные.
 // Первым элементом сервер возвращает само пространство — его отбрасываем
@@ -45,6 +53,11 @@ export const toChildSummaries = (
         result.set(room.room_id, {
             name: room.name ?? null,
             avatarUrl: room.avatar_url ?? null,
+            roomType: room.room_type ?? null,
+            joinRule: room.join_rule ?? null,
+            worldReadable: room.world_readable === true,
+            guestCanJoin: room.guest_can_join === true,
+            memberCount: room.num_joined_members ?? 0,
         });
     }
     return result;
@@ -54,7 +67,26 @@ export const toChildSummaries = (
 // мы и так не показываем
 export const getSpaceChildSummaries = async (
     spaceId: string,
-): Promise<Map<string, ChildSummary>> => {
-    const { rooms } = await getClient().getRoomHierarchy(spaceId, 50, 1);
+): Promise<Map<string, SpaceChildSummary>> => {
+    const rooms: IHierarchyRoom[] = [];
+    let fromToken: string | undefined;
+    let pageCount = 0;
+
+    do {
+        const response = await getClient().getRoomHierarchy(
+            spaceId,
+            50,
+            1,
+            false,
+            fromToken,
+        );
+        rooms.push(...response.rooms);
+        fromToken = response.next_batch;
+        pageCount += 1;
+        if (pageCount >= 100 && fromToken) {
+            throw new Error('Space hierarchy pagination did not finish');
+        }
+    } while (fromToken);
+
     return toChildSummaries(spaceId, rooms);
 };

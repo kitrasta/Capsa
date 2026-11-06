@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getClient, joinRoom } from '../../../shared/lib/matrix';
+import { getClient } from '../../../shared/lib/matrix';
 import styles from './UnjoinedRoomItem.module.css';
 
 interface Props {
@@ -78,28 +77,16 @@ const useAvatarObjectUrl = (mxcUrl: string | null): string | null => {
 // ребёнок пространства, в который мы ещё не вступили
 const UnjoinedRoomItem = ({ roomId, name, avatarUrl, noAccess = false }: Props) => {
     const navigate = useNavigate();
-    const [isJoining, setIsJoining] = useState(false);
     const fetchedAvatarUrl = useAvatarObjectUrl(noAccess ? null : avatarUrl);
 
     const displayName = noAccess ? NO_ACCESS_LABEL : (name ?? placeholderName(roomId));
 
-    const handleClick = async () => {
-        if (isJoining) return;
-
-        setIsJoining(true);
-        try {
-            await joinRoom(roomId);
-            navigate('/chats/' + encodeURIComponent(roomId));
-        } catch (error) {
-            // строка сама вернётся в исходное состояние
-            console.error('Failed to join room:', error);
-        } finally {
-            setIsJoining(false);
-        }
+    const handleClick = () => {
+        navigate('/chats/' + encodeURIComponent(roomId));
     };
 
     return (
-        <div className={styles.room} onClick={handleClick}>
+        <button type="button" className={styles.room} onClick={handleClick}>
             {fetchedAvatarUrl && avatarUrl ? (
                 <img
                     className={styles.avatar}
@@ -118,13 +105,9 @@ const UnjoinedRoomItem = ({ roomId, name, avatarUrl, noAccess = false }: Props) 
             )}
 
             <div className={noAccess ? `${styles.name} ${styles.muted}` : styles.name}>
-                {isJoining ? (
-                    <Loader2 className={styles.spinner} size={18} />
-                ) : (
-                    displayName
-                )}
+                {displayName}
             </div>
-        </div>
+        </button>
     );
 };
 
