@@ -30,8 +30,14 @@ const SpaceOverview = () => {
                 <div className={styles.unavailable}>
                     <h1>Пространство недоступно</h1>
                     <p>Оно могло быть удалено, или у вас больше нет доступа.</p>
-                    <button className={styles.rootButton} type="button" onClick={() => navigate('/chats')}>
-                        Все чаты
+                    <button
+                        className={styles.rootButton}
+                        type="button"
+                        onClick={() => navigate(parentSpaceId
+                            ? `/spaces/${encodeURIComponent(parentSpaceId)}`
+                            : '/chats')}
+                    >
+                        {parentSpaceId ? 'Назад к родительскому пространству' : 'Все чаты'}
                     </button>
                 </div>
             </section>

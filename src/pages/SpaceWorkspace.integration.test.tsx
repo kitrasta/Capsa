@@ -239,6 +239,25 @@ describe('Space workspace routes', () => {
         expect(await screen.findByText('Рабочее пространство команды')).toBeTruthy();
     });
 
+    it('returns from an unavailable nested Space to its actual parent', async () => {
+        const client = mocks.getClient() as MatrixClient;
+        const nested = client.getRoom(NESTED_ID)!;
+        nested.getMyMembership = () => 'leave';
+        renderRoute(spacePath());
+        const overview = await screen.findByRole('region', { name: 'Обзор пространства' });
+
+        fireEvent.click(within(overview).getByRole('button', { name: /Разработка/ }));
+
+        const unavailableOverview = await screen.findByRole('region', { name: 'Обзор пространства' });
+        expect(within(unavailableOverview).getByText('Пространство недоступно')).toBeTruthy();
+        fireEvent.click(within(unavailableOverview).getByRole('button', {
+            name: 'Назад к родительскому пространству',
+        }));
+
+        expect(screen.getByTestId('location').textContent).toBe(spacePath());
+        expect(await screen.findByText('Рабочее пространство команды')).toBeTruthy();
+    });
+
     it('retains Space and room context on a direct room URL', async () => {
         renderRoute(roomPath());
 
